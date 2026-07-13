@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Español CRM">
+<meta name="theme-color" content="#e63946">
+<title>Español CRM — Бухгалтерія курсу</title>
+<style>
+  :root{
+    --accent:#e63946;
+    --accent-dark:#c1121f;
+    --bg:#f5f6f8;
+    --card:#ffffff;
+    --text:#1d2129;
+    --muted:#6b7280;
+    --border:#e5e7eb;
+    --green:#16a34a;
+    --red:#dc2626;
+    --amber:#d97706;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #app{
+    max-width:520px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    background:var(--bg);
+    padding-bottom:calc(64px + env(safe-area-inset-bottom));
+  }
+  header.topbar{
+    position:sticky;top:0;z-index:20;
+    background:var(--accent);
+    color:#fff;
+    padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  header.topbar h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px;}
+  header.topbar .sub{font-size:12px;opacity:.85;margin-top:2px;}
+  main{flex:1;padding:14px 14px 24px;}
+  section.view{display:none;}
+  section.view.active{display:block;animation:fade .18s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  .cards-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .stat-card{
+    background:var(--card);border-radius:var(--radius);padding:14px;
+    box-shadow:0 1px 2px rgba(0,0,0,.05);border:1px solid var(--border);
+  }
+  .stat-card .num{font-size:22px;font-weight:800;}
+  .stat-card .label{font-size:12px;color:var(--muted);margin-top:2px;}
+  .stat-card.debt .num{color:var(--red);}
+  .stat-card.income .num{color:var(--green);}
+
+  .section-title{font-size:14px;font-weight:700;margin:18px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+
+  .list-card{
+    background:var(--card);border-radius:var(--radius);border:1px solid var(--border);
+    margin-bottom:10px;overflow:hidden;
+  }
+  .list-item{
+    padding:12px 14px;display:flex;justify-content:space-between;align-items:center;
+    gap:10px;border-bottom:1px solid var(--border);cursor:pointer;
+  }
+  .list-item:last-child{border-bottom:none;}
+  .list-item .name{font-weight:600;font-size:15px;}
+  .list-item .meta{font-size:12px;color:var(--muted);margin-top:2px;}
+  .badge{
+    font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;
+  }
+  .badge.active{background:#dcfce7;color:var(--green);}
+  .badge.pause{background:#fef3c7;color:var(--amber);}
+  .badge.done{background:#e5e7eb;color:var(--muted);}
+  .badge.debt{background:#fee2e2;color:var(--red);}
+  .badge.ok{background:#dcfce7;color:var(--green);}
+
+  .fab{
+    position:fixed;right:calc(50% - 260px + 18px);bottom:calc(78px + env(safe-area-inset-bottom));
+    width:52px;height:52px;border-radius:50%;background:var(--accent);color:#fff;
+    border:none;font-size:26px;box-shadow:0 4px 12px rgba(230,57,70,.4);
+    display:flex;align-items:center;justify-content:center;z-index:15;
+  }
+  @media (max-width:559px){.fab{right:18px;}}
+
+  nav.tabbar{
+    position:fixed;bottom:0;left:0;right:0;
+    background:#fff;border-top:1px solid var(--border);
+    display:flex;justify-content:space-around;
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    max-width:520px;margin:0 auto;z-index:20;
+  }
+  nav.tabbar button{
+    background:none;border:none;display:flex;flex-direction:column;align-items:center;
+    gap:2px;color:var(--muted);font-size:10px;padding:4px 6px;flex:1;
+  }
+  nav.tabbar button .ic{font-size:20px;line-height:1;}
+  nav.tabbar button.active{color:var(--accent);font-weight:700;}
+
+  input,select,textarea{
+    width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:10px;
+    font-size:15px;background:#fff;color:var(--text);margin-bottom:10px;font-family:inherit;
+  }
+  label{font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;}
+  .field{margin-bottom:10px;}
+  .btn{
+    display:block;width:100%;padding:13px;border:none;border-radius:10px;
+    background:var(--accent);color:#fff;font-size:15px;font-weight:700;margin-top:6px;
+  }
+  .btn.secondary{background:#f0f1f3;color:var(--text);}
+  .btn.danger{background:#fee2e2;color:var(--red);}
+  .btn-row{display:flex;gap:8px;}
+  .btn-row .btn{flex:1;}
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:30;
+    display:none;align-items:flex-end;justify-content:center;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:#fff;width:100%;max-width:520px;border-radius:18px 18px 0 0;
+    max-height:88vh;overflow-y:auto;padding:18px 18px calc(18px + env(safe-area-inset-bottom));
+  }
+  .modal h2{margin:0 0 14px;font-size:17px;}
+  .modal .close{position:absolute;top:14px;right:16px;font-size:22px;color:var(--muted);background:none;border:none;}
+
+  .empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:14px;}
+  .search-box{margin-bottom:12px;}
+  .segmented{display:flex;background:#eceef1;border-radius:10px;padding:3px;margin-bottom:14px;}
+  .segmented button{flex:1;border:none;background:none;padding:8px 4px;border-radius:8px;font-size:12px;font-weight:600;color:var(--muted);}
+  .segmented button.active{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  .helper{font-size:11px;color:var(--muted);margin:-4px 0 10px;}
+  .balance{font-weight:700;}
+  .balance.neg{color:var(--red);}
+  .balance.pos{color:var(--green);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div>
+      <h1 id="pageTitle">Дашборд</h1>
+      <div class="sub">Español CRM</div>
+    </div>
+    <div id="headerRight" style="font-size:12px;opacity:.9;"></div>
+  </header>
+
+  <main>
+
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <div class="cards-row">
+        <div class="stat-card"><div class="num" id="statStudents">0</div><div class="label">Учнів усього</div></div>
+        <div class="stat-card"><div class="num" id="statActive">0</div><div class="label">Активних</div></div>
+        <div class="stat-card income"><div class="num" id="statIncome">0 ₴</div><div class="label">Дохід усього</div></div>
+        <div class="stat-card debt"><div class="num" id="statDebt">0 ₴</div><div class="label">Загальний борг</div></div>
+      </div>
+
+      <div class="section-title">Учні з боргом</div>
+      <div class="list-card" id="debtorsList"><div class="empty">Боржників немає 🎉</div></div>
+
+      <div class="section-title">Джерела учнів (платформа)</div>
+      <div class="list-card" id="platformStats"><div class="empty">Немає даних</div></div>
+
+      <div class="section-title">Канали зв'язку</div>
+      <div class="list-card" id="channelStats"><div class="empty">Немає даних</div></div>
+    </section>
+
+    <!-- STUDENTS -->
+    <section class="view" id="view-students">
+      <input type="text" class="search-box" id="studentSearch" placeholder="Пошук учня за іменем або телефоном">
+      <div class="segmented" id="studentFilter">
+        <button data-f="all" class="active">Всі</button>
+        <button data-f="active">Активні</button>
+        <button data-f="pause">Пауза</button>
+        <button data-f="done">Завершили</button>
+      </div>
+      <div class="list-card" id="studentsList"><div class="empty">Учнів ще немає. Натисніть +, щоб додати.</div></div>
+    </section>
+
+    <!-- PAYMENTS -->
+    <section class="view" id="view-payments">
+      <div class="list-card" id="paymentsList"><div class="empty">Оплат ще немає.</div></div>
+    </section>
+
+    <!-- LESSONS -->
+    <section class="view" id="view-lessons">
+      <div class="list-card" id="lessonsList"><div class="empty">Уроків ще немає.</div></div>
+    </section>
+
+    <!-- TARIFFS -->
+    <section class="view" id="view-tariffs">
+      <div class="list-card" id="tariffsList"><div class="empty">Тарифів ще немає.</div></div>
+    </section>
+
+  </main>
+
+  <button class="fab" id="fabAdd">+</button>
+
+  <nav class="tabbar">
+    <button data-view="dashboard" class="active"><span class="ic">🏠</span>Дашборд</button>
+    <button data-view="students"><span class="ic">👥</span>Учні</button>
+    <button data-view="payments"><span class="ic">💳</span>Оплати</button>
+    <button data-view="lessons"><span class="ic">📅</span>Уроки</button>
+    <button data-view="tariffs"><span class="ic">🏷️</span>Тарифи</button>
+  </nav>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBody"></div>
+</div>
+
+<script>
+/* ---------- ЗБЕРІГАННЯ ДАНИХ (localStorage) ---------- */
+const DB_KEY = 'espanolCrmData_v1';
+function loadDB(){
+  const raw = localStorage.getItem(DB_KEY);
+  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
+  return { students:[], tariffs:[], payments:[], lessons:[], seq:1 };
+}
+function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+let db = loadDB();
+function nextId(){ return db.seq++; }
+
+/* сідові тарифи для першого запуску */
+if(db.tariffs.length === 0){
+  db.tariffs.push(
+    {id:nextId(), name:'Індивідуальний', pricePerLesson:400, lessonsInPackage:1, packagePrice:400},
+    {id:nextId(), name:'Пакет 8 уроків', pricePerLesson:350, lessonsInPackage:8, packagePrice:2800},
+    {id:nextId(), name:'Груповий', pricePerLesson:220, lessonsInPackage:4, packagePrice:880}
+  );
+  saveDB();
+}
+
+/* ---------- НАВІГАЦІЯ ---------- */
+const titles = {dashboard:'Дашборд', students:'Учні', payments:'Оплати', lessons:'Уроки', tariffs:'Тарифи'};
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('nav.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+  document.getElementById('pageTitle').textContent = titles[name];
+  currentView = name;
+  renderAll();
+}
+let currentView = 'dashboard';
+document.querySelectorAll('nav.tabbar button').forEach(b=>{
+  b.addEventListener('click', ()=>showView(b.dataset.view));
+});
+
+/* ---------- ДОПОМІЖНІ ФУНКЦІЇ ---------- */
+function fmtMoney(n){ return (Math.round(n*100)/100).toLocaleString('uk-UA') + ' ₴'; }
+function studentName(s){ return s.firstName + ' ' + s.lastName; }
+function getStudent(id){ return db.students.find(s=>s.id===id); }
+function getTariff(id){ return db.tariffs.find(t=>t.id===id); }
+
+/* баланс учня в уроках: оплачено - проведено */
+function studentBalance(studentId){
+  const paid = db.payments.filter(p=>p.studentId===studentId).reduce((sum,p)=>sum+Number(p.lessonsPaid||0),0);
+  const done = db.lessons.filter(l=>l.studentId===studentId && l.status==='conducted').length;
+  return paid - done;
+}
+/* сума боргу в грн, за ціною поточного тарифу учня */
+function studentDebtAmount(student){
+  const bal = studentBalance(student.id);
+  if(bal>=0) return 0;
+  const t = getTariff(student.tariffId);
+  const pricePerLesson = t ? (t.pricePerLesson || (t.packagePrice/t.lessonsInPackage)) : 0;
+  return Math.abs(bal) * pricePerLesson;
+}
+function totalIncome(){ return db.payments.reduce((s,p)=>s+Number(p.amount||0),0); }
+function totalDebt(){ return db.students.reduce((s,st)=>s+studentDebtAmount(st),0); }
+
+/* ---------- РЕНДЕР: ДАШБОРД ---------- */
+function renderDashboard(){
+  document.getElementById('statStudents').textContent = db.students.length;
+  document.getElementById('statActive').textContent = db.students.filter(s=>s.status==='active').length;
+  document.getElementById('statIncome').textContent = fmtMoney(totalIncome());
+  document.getElementById('statDebt').textContent = fmtMoney(totalDebt());
+
+  const debtors = db.students.filter(s=>studentDebtAmount(s)>0).sort((a,b)=>studentDebtAmount(b)-studentDebtAmount(a));
+  const debtorsList = document.getElementById('debtorsList');
+  debtorsList.innerHTML = debtors.length ? debtors.map(s=>`
+    <div class="list-item" onclick="openStudentForm(${s.id})">
+      <div><div class="name">${studentName(s)}</div><div class="meta">${s.phone||''}</div></div>
+      <span class="badge debt">${fmtMoney(studentDebtAmount(s))}</span>
+    </div>`).join('') : '<div class="empty">Боржників немає 🎉</div>';
+
+  const platforms = {};
+  db.students.forEach(s=>{ const p = s.platform||'Не вказано'; platforms[p]=(platforms[p]||0)+1; });
+  const platformStats = document.getElementById('platformStats');
+  const pKeys = Object.keys(platforms);
+  platformStats.innerHTML = pKeys.length ? pKeys.map(p=>`
+    <div class="list-item"><div class="name">${p}</div><span class="badge ok">${platforms[p]}</span></div>
+  `).join('') : '<div class="empty">Немає даних</div>';
+
+  const channels = {};
+  db.students.forEach(s=>{ const c = s.channel||'Не вказано'; channels[c]=(channels[c]||0)+1; });
+  const channelStats = document.getElementById('channelStats');
+  const cKeys = Object.keys(channels);
+  channelStats.innerHTML = cKeys.length ? cKeys.map(c=>`
+    <div class="list-item"><div class="name">${c}</div><span class="badge ok">${channels[c]}</span></div>
+  `).join('') : '<div class="empty">Немає даних</div>';
+}
+
+/* ---------- РЕНДЕР: УЧНІ ---------- */
+let studentFilterState = 'all';
+document.getElementById('studentFilter').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  studentFilterState = btn.dataset.f;
+  document.querySelectorAll('#studentFilter button').forEach(b=>b.classList.toggle('active', b===btn));
+  renderStudents();
+});
+document.getElementById('studentSearch').addEventListener('input', renderStudents);
+
+function renderStudents(){
+  const q = document.getElementById('studentSearch').value.trim().toLowerCase();
+  let list = db.students.filter(s=>{
+    if(studentFilterState!=='all' && s.status!==studentFilterState) return false;
+    if(q && !(studentName(s).toLowerCase().includes(q) || (s.phone||'').includes(q))) return false;
+    return true;
+  }).sort((a,b)=>studentName(a).localeCompare(studentName(b),'uk'));
+
+  const el = document.getElementById('studentsList');
+  if(!list.length){ el.innerHTML = '<div class="empty">Нічого не знайдено.</div>'; return; }
+  const statusLabel = {active:'Активний', pause:'Пауза', done:'Завершив'};
+  el.innerHTML = list.map(s=>{
+    const bal = studentBalance(s.id);
+    const debt = studentDebtAmount(s);
+    return `<div class="list-item" onclick="openStudentForm(${s.id})">
+      <div>
+        <div class="name">${studentName(s)}</div>
+        <div class="meta">${s.channel||'—'} · ${s.phone||'—'}</div>
+        <div class="meta">Баланс: <span class="balance ${bal<0?'neg':'pos'}">${bal} ур.</span>${debt>0?' · Борг: '+fmtMoney(debt):''}</div>
+      </div>
+      <span class="badge ${s.status}">${statusLabel[s.status]||s.status}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- РЕНДЕР: ОПЛАТИ ---------- */
+function renderPayments(){
+  const el = document.getElementById('paymentsList');
+  const list = [...db.payments].sort((a,b)=> new Date(b.date)-new Date(a.date));
+  if(!list.length){ el.innerHTML = '<div class="empty">Оплат ще немає.</div>'; return; }
+  el.innerHTML = list.map(p=>{
+    const s = getStudent(p.studentId);
+    const t = getTariff(p.tariffId);
+    return `<div class="list-item" onclick="openPaymentForm(${p.id})">
+      <div>
+        <div class="name">${s?studentName(s):'Учень видалений'}</div>
+        <div class="meta">${p.date} · ${t?t.name:'—'} · ${p.method||'—'}</div>
+        <div class="meta">Оплачено уроків: ${p.lessonsPaid}</div>
+      </div>
+      <span class="badge ok">${fmtMoney(p.amount)}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- РЕНДЕР: УРОКИ ---------- */
+function renderLessons(){
+  const el = document.getElementById('lessonsList');
+  const list = [...db.lessons].sort((a,b)=> new Date(b.date)-new Date(a.date));
+  if(!list.length){ el.innerHTML = '<div class="empty">Уроків ще немає.</div>'; return; }
+  const statusLabel = {conducted:'Проведено', cancelled_student:'Скасував учень', cancelled_teacher:'Скасував викладач', rescheduled:'Перенесено'};
+  const statusClass = {conducted:'ok', cancelled_student:'debt', cancelled_teacher:'pause', rescheduled:'pause'};
+  el.innerHTML = list.map(l=>{
+    const s = getStudent(l.studentId);
+    return `<div class="list-item" onclick="openLessonForm(${l.id})">
+      <div>
+        <div class="name">${s?studentName(s):'Учень видалений'}</div>
+        <div class="meta">${l.date}</div>
+      </div>
+      <span class="badge ${statusClass[l.status]||'ok'}">${statusLabel[l.status]||l.status}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- РЕНДЕР: ТАРИФИ ---------- */
+function renderTariffs(){
+  const el = document.getElementById('tariffsList');
+  if(!db.tariffs.length){ el.innerHTML = '<div class="empty">Тарифів ще немає.</div>'; return; }
+  el.innerHTML = db.tariffs.map(t=>`
+    <div class="list-item" onclick="openTariffForm(${t.id})">
+      <div>
+        <div class="name">${t.name}</div>
+        <div class="meta">${t.lessonsInPackage} ур. за ${fmtMoney(t.packagePrice)} (${fmtMoney(t.pricePerLesson)}/ур.)</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderAll(){
+  renderDashboard();
+  if(currentView==='students') renderStudents();
+  if(currentView==='payments') renderPayments();
+  if(currentView==='lessons') renderLessons();
+  if(currentView==='tariffs') renderTariffs();
+}
+
+/* ---------- МОДАЛЬНІ ФОРМИ ---------- */
+const overlay = document.getElementById('modalOverlay');
+const modalBody = document.getElementById('modalBody');
+function closeModal(){ overlay.classList.remove('open'); modalBody.innerHTML=''; }
+overlay.addEventListener('click', e=>{ if(e.target===overlay) closeModal(); });
+
+function tariffOptions(selectedId){
+  return db.tariffs.map(t=>`<option value="${t.id}" ${t.id===selectedId?'selected':''}>${t.name}</option>`).join('');
+}
+function studentOptions(selectedId){
+  return db.students.map(s=>`<option value="${s.id}" ${s.id===selectedId?'selected':''}>${studentName(s)}</option>`).join('');
+}
+
+function openStudentForm(id){
+  const s = id ? getStudent(id) : null;
+  modalBody.innerHTML = `
+    <h2>${s?'Редагувати учня':'Новий учень'}</h2>
+    <div class="field"><label>Ім'я *</label><input id="f_firstName" value="${s?s.firstName:''}"></div>
+    <div class="field"><label>Прізвище</label><input id="f_lastName" value="${s?s.lastName:''}"></div>
+    <div class="field"><label>Телефон</label><input id="f_phone" value="${s?s.phone||'':''}" placeholder="+380..."></div>
+    <div class="field"><label>Email</label><input id="f_email" value="${s?s.email||'':''}"></div>
+    <div class="field"><label>Канал зв'язку</label>
+      <select id="f_channel">
+        <option ${s&&s.channel==='Telegram'?'selected':''}>Telegram</option>
+        <option ${s&&s.channel==='WhatsApp'?'selected':''}>WhatsApp</option>
+        <option ${s&&s.channel==='Viber'?'selected':''}>Viber</option>
+        <option ${s&&s.channel==='Дзвінок'?'selected':''}>Дзвінок</option>
+      </select>
+    </div>
+    <div class="field"><label>Платформа (звідки прийшов)</label>
+      <select id="f_platform">
+        <option ${s&&s.platform==='Instagram'?'selected':''}>Instagram</option>
+        <option ${s&&s.platform==='Facebook'?'selected':''}>Facebook</option>
+        <option ${s&&s.platform==='TikTok'?'selected':''}>TikTok</option>
+        <option ${s&&s.platform==='Сайт'?'selected':''}>Сайт</option>
+        <option ${s&&s.platform==='Реферал (від учня)'?'selected':''}>Реферал (від учня)</option>
+        <option ${s&&s.platform==='Telegram-канал'?'selected':''}>Telegram-канал</option>
+        <option ${s&&s.platform==='Інше'?'selected':''}>Інше</option>
+      </select>
+    </div>
+    <div class="field"><label>Тариф</label><select id="f_tariff">${tariffOptions(s?s.tariffId:null)}</select></div>
+    <div class="field"><label>Дата початку</label><input type="date" id="f_startDate" value="${s?s.startDate||'':new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label>Статус</label>
+      <select id="f_status">
+        <option value="active" ${s&&s.status==='active'?'selected':''}>Активний</option>
+        <option value="pause" ${s&&s.status==='pause'?'selected':''}>Пауза</option>
+        <option value="done" ${s&&s.status==='done'?'selected':''}>Завершив</option>
+      </select>
+    </div>
+    <div class="field"><label>Коментар</label><textarea id="f_notes" rows="2">${s?s.notes||'':''}</textarea></div>
+    <div class="btn-row">
+      <button class="btn" onclick="saveStudent(${id||'null'})">Зберегти</button>
+      ${s?'<button class="btn danger" onclick="deleteStudent('+id+')">Видалити</button>':''}
+    </div>
+    <button class="btn secondary" onclick="closeModal()">Скасувати</button>
+  `;
+  overlay.classList.add('open');
+}
+function saveStudent(id){
+  const data = {
+    firstName: document.getElementById('f_firstName').value.trim(),
+    lastName: document.getElementById('f_lastName').value.trim(),
+    phone: document.getElementById('f_phone').value.trim(),
+    email: document.getElementById('f_email').value.trim(),
+    channel: document.getElementById('f_channel').value,
+    platform: document.getElementById('f_platform').value,
+    tariffId: Number(document.getElementById('f_tariff').value),
+    startDate: document.getElementById('f_startDate').value,
+    status: document.getElementById('f_status').value,
+    notes: document.getElementById('f_notes').value.trim(),
+  };
+  if(!data.firstName){ alert("Вкажіть ім'я учня"); return; }
+  if(id){ Object.assign(getStudent(id), data); }
+  else { data.id = nextId(); db.students.push(data); }
+  saveDB(); closeModal(); showView('students');
+}
+function deleteStudent(id){
+  if(!confirm('Видалити учня та всю історію? Цю дію не можна скасувати.')) return;
+  db.students = db.students.filter(s=>s.id!==id);
+  db.payments = db.payments.filter(p=>p.studentId!==id);
+  db.lessons = db.lessons.filter(l=>l.studentId!==id);
+  saveDB(); closeModal(); showView('students');
+}
+
+function openPaymentForm(id){
+  const p = id ? db.payments.find(x=>x.id===id) : null;
+  if(!db.students.length){ alert('Спочатку додайте хоча б одного учня'); return; }
+  modalBody.innerHTML = `
+    <h2>${p?'Редагувати оплату':'Нова оплата'}</h2>
+    <div class="field"><label>Учень *</label><select id="f_student">${studentOptions(p?p.studentId:null)}</select></div>
+    <div class="field"><label>Дата оплати</label><input type="date" id="f_date" value="${p?p.date:new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label>Тариф</label><select id="f_tariff" onchange="autofillPayment()">${tariffOptions(p?p.tariffId:null)}</select></div>
+    <div class="field"><label>Сума (₴)</label><input type="number" id="f_amount" value="${p?p.amount:''}"></div>
+    <div class="field"><label>К-сть оплачених уроків</label><input type="number" id="f_lessons" value="${p?p.lessonsPaid:''}"></div>
+    <div class="field"><label>Платформа/спосіб оплати</label>
+      <select id="f_method">
+        <option ${p&&p.method==='Monobank'?'selected':''}>Monobank</option>
+        <option ${p&&p.method==='ПриватБанк'?'selected':''}>ПриватБанк</option>
+        <option ${p&&p.method==='Готівка'?'selected':''}>Готівка</option>
+        <option ${p&&p.method==='PayPal'?'selected':''}>PayPal</option>
+        <option ${p&&p.method==='Wise'?'selected':''}>Wise</option>
+        <option ${p&&p.method==='Інше'?'selected':''}>Інше</option>
+      </select>
+    </div>
+    <div class="field"><label>Коментар</label><textarea id="f_note" rows="2">${p?p.note||'':''}</textarea></div>
+    <div class="btn-row">
+      <button class="btn" onclick="savePayment(${id||'null'})">Зберегти</button>
+      ${p?'<button class="btn danger" onclick="deletePayment('+id+')">Видалити</button>':''}
+    </div>
+    <button class="btn secondary" onclick="closeModal()">Скасувати</button>
+  `;
+  overlay.classList.add('open');
+  if(!p) autofillPayment();
+}
+function autofillPayment(){
+  const t = getTariff(Number(document.getElementById('f_tariff').value));
+  if(!t) return;
+  if(!document.getElementById('f_amount').value) document.getElementById('f_amount').value = t.packagePrice;
+  if(!document.getElementById('f_lessons').value) document.getElementById('f_lessons').value = t.lessonsInPackage;
+}
+function savePayment(id){
+  const data = {
+    studentId: Number(document.getElementById('f_student').value),
+    date: document.getElementById('f_date').value,
+    tariffId: Number(document.getElementById('f_tariff').value),
+    amount: Number(document.getElementById('f_amount').value||0),
+    lessonsPaid: Number(document.getElementById('f_lessons').value||0),
+    method: document.getElementById('f_method').value,
+    note: document.getElementById('f_note').value.trim(),
+  };
+  if(id){ Object.assign(db.payments.find(x=>x.id===id), data); }
+  else { data.id = nextId(); db.payments.push(data); }
+  saveDB(); closeModal(); showView('payments');
+}
+function deletePayment(id){
+  if(!confirm('Видалити цю оплату?')) return;
+  db.payments = db.payments.filter(p=>p.id!==id);
+  saveDB(); closeModal(); showView('payments');
+}
+
+function openLessonForm(id){
+  const l = id ? db.lessons.find(x=>x.id===id) : null;
+  if(!db.students.length){ alert('Спочатку додайте хоча б одного учня'); return; }
+  modalBody.innerHTML = `
+    <h2>${l?'Редагувати урок':'Новий урок'}</h2>
+    <div class="field"><label>Учень *</label><select id="f_student">${studentOptions(l?l.studentId:null)}</select></div>
+    <div class="field"><label>Дата уроку</label><input type="date" id="f_date" value="${l?l.date:new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label>Статус</label>
+      <select id="f_status">
+        <option value="conducted" ${l&&l.status==='conducted'?'selected':''}>Проведено</option>
+        <option value="cancelled_student" ${l&&l.status==='cancelled_student'?'selected':''}>Скасував учень</option>
+        <option value="cancelled_teacher" ${l&&l.status==='cancelled_teacher'?'selected':''}>Скасував викладач</option>
+        <option value="rescheduled" ${l&&l.status==='rescheduled'?'selected':''}>Перенесено</option>
+      </select>
+    </div>
+    <div class="helper">Тільки уроки зі статусом «Проведено» списуються з балансу учня.</div>
+    <div class="btn-row">
+      <button class="btn" onclick="saveLesson(${id||'null'})">Зберегти</button>
+      ${l?'<button class="btn danger" onclick="deleteLesson('+id+')">Видалити</button>':''}
+    </div>
+    <button class="btn secondary" onclick="closeModal()">Скасувати</button>
+  `;
+  overlay.classList.add('open');
+}
+function saveLesson(id){
+  const data = {
+    studentId: Number(document.getElementById('f_student').value),
+    date: document.getElementById('f_date').value,
+    status: document.getElementById('f_status').value,
+  };
+  if(id){ Object.assign(db.lessons.find(x=>x.id===id), data); }
+  else { data.id = nextId(); db.lessons.push(data); }
+  saveDB(); closeModal(); showView('lessons');
+}
+function deleteLesson(id){
+  if(!confirm('Видалити цей урок?')) return;
+  db.lessons = db.lessons.filter(l=>l.id!==id);
+  saveDB(); closeModal(); showView('lessons');
+}
+
+function openTariffForm(id){
+  const t = id ? getTariff(id) : null;
+  modalBody.innerHTML = `
+    <h2>${t?'Редагувати тариф':'Новий тариф'}</h2>
+    <div class="field"><label>Назва *</label><input id="f_name" value="${t?t.name:''}"></div>
+    <div class="field"><label>К-сть уроків у пакеті</label><input type="number" id="f_lip" value="${t?t.lessonsInPackage:1}"></div>
+    <div class="field"><label>Ціна пакету (₴)</label><input type="number" id="f_pp" value="${t?t.packagePrice:''}" oninput="syncPrice()"></div>
+    <div class="field"><label>Ціна за урок (₴)</label><input type="number" id="f_ppl" value="${t?t.pricePerLesson:''}"></div>
+    <div class="btn-row">
+      <button class="btn" onclick="saveTariff(${id||'null'})">Зберегти</button>
+      ${t?'<button class="btn danger" onclick="deleteTariff('+id+')">Видалити</button>':''}
+    </div>
+    <button class="btn secondary" onclick="closeModal()">Скасувати</button>
+  `;
+  overlay.classList.add('open');
+}
+function syncPrice(){
+  const lip = Number(document.getElementById('f_lip').value||1);
+  const pp = Number(document.getElementById('f_pp').value||0);
+  if(lip>0) document.getElementById('f_ppl').value = Math.round((pp/lip)*100)/100;
+}
+function saveTariff(id){
+  const data = {
+    name: document.getElementById('f_name').value.trim(),
+    lessonsInPackage: Number(document.getElementById('f_lip').value||1),
+    packagePrice: Number(document.getElementById('f_pp').value||0),
+    pricePerLesson: Number(document.getElementById('f_ppl').value||0),
+  };
+  if(!data.name){ alert('Вкажіть назву тарифу'); return; }
+  if(id){ Object.assign(getTariff(id), data); }
+  else { data.id = nextId(); db.tariffs.push(data); }
+  saveDB(); closeModal(); showView('tariffs');
+}
+function deleteTariff(id){
+  if(!confirm('Видалити цей тариф?')) return;
+  db.tariffs = db.tariffs.filter(t=>t.id!==id);
+  saveDB(); closeModal(); showView('tariffs');
+}
+
+/* ---------- FAB (кнопка додавання, контекстна) ---------- */
+document.getElementById('fabAdd').addEventListener('click', ()=>{
+  if(currentView==='students') openStudentForm();
+  else if(currentView==='payments') openPaymentForm();
+  else if(currentView==='lessons') openLessonForm();
+  else if(currentView==='tariffs') openTariffForm();
+  else openStudentForm();
+});
+
+/* ---------- ПЕРШИЙ РЕНДЕР ---------- */
+renderAll();
+</script>
+</body>
+</html>
