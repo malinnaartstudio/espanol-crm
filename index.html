@@ -227,10 +227,11 @@ const DB_KEY = 'espanolCrmData_v1';
 function loadDB(){
   const raw = localStorage.getItem(DB_KEY);
   if(raw){ try{ return JSON.parse(raw); }catch(e){} }
-  return { students:[], tariffs:[], payments:[], lessons:[], seq:1 };
+  return { students:[], tariffs:[], payments:[], lessons:[], lessonTopics:[], seq:1 };
 }
 function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
 let db = loadDB();
+if(!Array.isArray(db.lessonTopics)) db.lessonTopics = [];
 function nextId(){ return db.seq++; }
 
 /* сідові тарифи для першого запуску (актуальні тарифи курсу, EUR) */
@@ -242,6 +243,9 @@ if(db.tariffs.length === 0){
   );
   saveDB();
 }
+
+/* рівні курсу (CEFR) */
+const LEVELS = ['A1','A2','B1','B2','C1','C2'];
 
 /* ---------- НАВІГАЦІЯ ---------- */
 const titles = {dashboard:'Дашборд', students:'Учні', payments:'Оплати', lessons:'Уроки', tariffs:'Тарифи'};
@@ -263,6 +267,7 @@ function fmtMoney(n){ return (Math.round(n*100)/100).toLocaleString('uk-UA') + '
 function studentName(s){ return s.firstName + ' ' + s.lastName; }
 function getStudent(id){ return db.students.find(s=>s.id===id); }
 function getTariff(id){ return db.tariffs.find(t=>t.id===id); }
+function getTopic(id){ return db.lessonTopics.find(t=>t.id===id); }
 
 /* баланс учня в уроках: оплачено - проведено */
 function studentBalance(studentId){
@@ -376,10 +381,12 @@ function renderLessons(){
   const statusClass = {conducted:'ok', cancelled_student:'debt', cancelled_teacher:'pause', rescheduled:'pause'};
   el.innerHTML = list.map(l=>{
     const s = getStudent(l.studentId);
+    const topic = getTopic(l.topicId);
+    const themeStr = [l.level, topic?topic.name:null].filter(Boolean).join(' · ');
     return `<div class="list-item" onclick="openLessonForm(${l.id})">
       <div>
         <div class="name">${s?studentName(s):'Учень видалений'}</div>
-        <div class="meta">${l.date}</div>
+        <div class="meta">${l.date}${themeStr?' · '+themeStr:''}</div>
       </div>
       <span class="badge ${statusClass[l.status]||'ok'}">${statusLabel[l.status]||l.status}</span>
     </div>`;
@@ -546,13 +553,47 @@ function deletePayment(id){
   saveDB(); closeModal(); showView('payments');
 }
 
+function topicOptionsForLevel(level, selectedId){
+  const items = db.lessonTopics.filter(t=>t.level===level);
+  let opts = items.map(t=>`<option value="${t.id}" ${t.id===selectedId?'selected':''}>${t.name}</option>`).join('');
+  opts += `<option value="">— не вказано —</option><option value="__new__">+ Додати нову тему</option>`;
+  return opts;
+}
+function onLevelChange(){
+  const level = document.getElementById('f_level').value;
+  document.getElementById('f_topic').innerHTML = topicOptionsForLevel(level, null);
+}
+function onTopicChange(){
+  const sel = document.getElementById('f_topic');
+  if(sel.value === '__new__'){
+    const level = document.getElementById('f_level').value;
+    const name = prompt('Назва нової теми (рівень ' + level + '):');
+    if(name && name.trim()){
+      const t = {id:nextId(), level:level, name:name.trim()};
+      db.lessonTopics.push(t);
+      saveDB();
+      sel.innerHTML = topicOptionsForLevel(level, t.id);
+    } else {
+      sel.value = '';
+    }
+  }
+}
 function openLessonForm(id){
   const l = id ? db.lessons.find(x=>x.id===id) : null;
   if(!db.students.length){ alert('Спочатку додайте хоча б одного учня'); return; }
+  const level = l&&l.level ? l.level : LEVELS[0];
   modalBody.innerHTML = `
     <h2>${l?'Редагувати урок':'Новий урок'}</h2>
     <div class="field"><label>Учень *</label><select id="f_student">${studentOptions(l?l.studentId:null)}</select></div>
     <div class="field"><label>Дата уроку</label><input type="date" id="f_date" value="${l?l.date:new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label>Рівень</label>
+      <select id="f_level" onchange="onLevelChange()">
+        ${LEVELS.map(lv=>`<option ${lv===level?'selected':''}>${lv}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Тема уроку</label>
+      <select id="f_topic" onchange="onTopicChange()">${topicOptionsForLevel(level, l?l.topicId:null)}</select>
+    </div>
     <div class="field"><label>Статус</label>
       <select id="f_status">
         <option value="conducted" ${l&&l.status==='conducted'?'selected':''}>Проведено</option>
@@ -571,9 +612,12 @@ function openLessonForm(id){
   overlay.classList.add('open');
 }
 function saveLesson(id){
+  const topicVal = document.getElementById('f_topic').value;
   const data = {
     studentId: Number(document.getElementById('f_student').value),
     date: document.getElementById('f_date').value,
+    level: document.getElementById('f_level').value,
+    topicId: (topicVal && topicVal !== '__new__') ? Number(topicVal) : null,
     status: document.getElementById('f_status').value,
   };
   if(id){ Object.assign(db.lessons.find(x=>x.id===id), data); }
