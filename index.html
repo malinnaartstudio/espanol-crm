@@ -175,6 +175,8 @@
 
       <div class="section-title">Канали зв'язку</div>
       <div class="list-card" id="channelStats"><div class="empty">Немає даних</div></div>
+
+      <button class="btn secondary" style="margin-top:8px;" onclick="openSettingsForm()">💾 Резервна копія</button>
     </section>
 
     <!-- STUDENTS -->
@@ -674,14 +676,40 @@ document.getElementById('settingsBtn').addEventListener('click', openSettingsFor
 function openSettingsForm(){
   modalBody.innerHTML = `
     <h2>Резервна копія даних</h2>
-    <div class="helper">Тут — усі ваші дані (учні, оплати, уроки, тарифи) у форматі тексту. Скопіюйте його, щоб зберегти або перенести на інший пристрій. Щоб завантажити дані — вставте текст і натисніть «Імпортувати». Нікому не пересилайте цей текст публічно — тут особисті дані учнів.</div>
-    <div class="field"><label>Дані (JSON)</label><textarea id="f_backup" rows="10">${JSON.stringify(db)}</textarea></div>
+    <div class="helper">Натисніть «Завантажити файл», щоб зберегти файл-копію всіх даних (учні, оплати, уроки, тарифи) на комп'ютер чи планшет — це найнадійніший спосіб не втратити дані, якщо браузер колись очистить пам'ять. Файл можна відкрити пізніше через «Імпортувати». Нікому не пересилайте цей файл публічно — там особисті дані учнів.</div>
+    <div class="btn-row">
+      <button class="btn" onclick="downloadBackup()">⬇️ Завантажити файл резервної копії</button>
+    </div>
+    <div class="field" style="margin-top:14px;"><label>Відновити з файлу резервної копії</label><input type="file" id="f_backup_upload" accept=".json,application/json" onchange="importBackupFile(event)"></div>
+    <div class="field"><label>Або встав текст (JSON)</label><textarea id="f_backup" rows="8">${JSON.stringify(db)}</textarea></div>
     <div class="btn-row">
       <button class="btn" onclick="importBackup()">Імпортувати (замінити поточні дані)</button>
     </div>
     <button class="btn secondary" onclick="closeModal()">Закрити</button>
   `;
   overlay.classList.add('open');
+}
+function importBackupFile(evt){
+  const file = evt.target.files && evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    document.getElementById('f_backup').value = reader.result;
+    importBackup();
+  };
+  reader.readAsText(file);
+}
+function downloadBackup(){
+  const dateStr = new Date().toISOString().slice(0,10);
+  const blob = new Blob([JSON.stringify(db, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'espanol-crm-backup-' + dateStr + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 function importBackup(){
   let parsed;
