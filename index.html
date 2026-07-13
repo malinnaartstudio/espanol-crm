@@ -153,7 +153,7 @@
       <h1 id="pageTitle">Дашборд</h1>
       <div class="sub">Español CRM</div>
     </div>
-    <div id="headerRight" style="font-size:12px;opacity:.9;"></div>
+    <button id="settingsBtn" aria-label="Налаштування / резервна копія" style="background:none;border:none;color:#fff;font-size:22px;padding:4px;line-height:1;">⚙️</button>
   </header>
 
   <main>
@@ -163,8 +163,8 @@
       <div class="cards-row">
         <div class="stat-card"><div class="num" id="statStudents">0</div><div class="label">Учнів усього</div></div>
         <div class="stat-card"><div class="num" id="statActive">0</div><div class="label">Активних</div></div>
-        <div class="stat-card income"><div class="num" id="statIncome">0 ₴</div><div class="label">Дохід усього</div></div>
-        <div class="stat-card debt"><div class="num" id="statDebt">0 ₴</div><div class="label">Загальний борг</div></div>
+        <div class="stat-card income"><div class="num" id="statIncome">0 €</div><div class="label">Дохід усього</div></div>
+        <div class="stat-card debt"><div class="num" id="statDebt">0 €</div><div class="label">Загальний борг</div></div>
       </div>
 
       <div class="section-title">Учні з боргом</div>
@@ -233,12 +233,12 @@ function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
 let db = loadDB();
 function nextId(){ return db.seq++; }
 
-/* сідові тарифи для першого запуску */
+/* сідові тарифи для першого запуску (актуальні тарифи курсу, EUR) */
 if(db.tariffs.length === 0){
   db.tariffs.push(
-    {id:nextId(), name:'Індивідуальний', pricePerLesson:400, lessonsInPackage:1, packagePrice:400},
-    {id:nextId(), name:'Пакет 8 уроків', pricePerLesson:350, lessonsInPackage:8, packagePrice:2800},
-    {id:nextId(), name:'Груповий', pricePerLesson:220, lessonsInPackage:4, packagePrice:880}
+    {id:nextId(), name:'Автоперевірка (самостійно, 30 уроків)', pricePerLesson:5, lessonsInPackage:30, packagePrice:150},
+    {id:nextId(), name:'З куратором (30 уроків)', pricePerLesson:10, lessonsInPackage:30, packagePrice:300},
+    {id:nextId(), name:'Індивідуальні уроки з викладачем (30 год)', pricePerLesson:15, lessonsInPackage:30, packagePrice:450}
   );
   saveDB();
 }
@@ -259,7 +259,7 @@ document.querySelectorAll('nav.tabbar button').forEach(b=>{
 });
 
 /* ---------- ДОПОМІЖНІ ФУНКЦІЇ ---------- */
-function fmtMoney(n){ return (Math.round(n*100)/100).toLocaleString('uk-UA') + ' ₴'; }
+function fmtMoney(n){ return (Math.round(n*100)/100).toLocaleString('uk-UA') + ' €'; }
 function studentName(s){ return s.firstName + ' ' + s.lastName; }
 function getStudent(id){ return db.students.find(s=>s.id===id); }
 function getTariff(id){ return db.tariffs.find(t=>t.id===id); }
@@ -499,7 +499,7 @@ function openPaymentForm(id){
     <div class="field"><label>Учень *</label><select id="f_student">${studentOptions(p?p.studentId:null)}</select></div>
     <div class="field"><label>Дата оплати</label><input type="date" id="f_date" value="${p?p.date:new Date().toISOString().slice(0,10)}"></div>
     <div class="field"><label>Тариф</label><select id="f_tariff" onchange="autofillPayment()">${tariffOptions(p?p.tariffId:null)}</select></div>
-    <div class="field"><label>Сума (₴)</label><input type="number" id="f_amount" value="${p?p.amount:''}"></div>
+    <div class="field"><label>Сума (€)</label><input type="number" id="f_amount" value="${p?p.amount:''}"></div>
     <div class="field"><label>К-сть оплачених уроків</label><input type="number" id="f_lessons" value="${p?p.lessonsPaid:''}"></div>
     <div class="field"><label>Платформа/спосіб оплати</label>
       <select id="f_method">
@@ -593,8 +593,8 @@ function openTariffForm(id){
     <h2>${t?'Редагувати тариф':'Новий тариф'}</h2>
     <div class="field"><label>Назва *</label><input id="f_name" value="${t?t.name:''}"></div>
     <div class="field"><label>К-сть уроків у пакеті</label><input type="number" id="f_lip" value="${t?t.lessonsInPackage:1}"></div>
-    <div class="field"><label>Ціна пакету (₴)</label><input type="number" id="f_pp" value="${t?t.packagePrice:''}" oninput="syncPrice()"></div>
-    <div class="field"><label>Ціна за урок (₴)</label><input type="number" id="f_ppl" value="${t?t.pricePerLesson:''}"></div>
+    <div class="field"><label>Ціна пакету (€)</label><input type="number" id="f_pp" value="${t?t.packagePrice:''}" oninput="syncPrice()"></div>
+    <div class="field"><label>Ціна за урок (€)</label><input type="number" id="f_ppl" value="${t?t.pricePerLesson:''}"></div>
     <div class="btn-row">
       <button class="btn" onclick="saveTariff(${id||'null'})">Зберегти</button>
       ${t?'<button class="btn danger" onclick="deleteTariff('+id+')">Видалити</button>':''}
@@ -624,6 +624,36 @@ function deleteTariff(id){
   if(!confirm('Видалити цей тариф?')) return;
   db.tariffs = db.tariffs.filter(t=>t.id!==id);
   saveDB(); closeModal(); showView('tariffs');
+}
+
+/* ---------- НАЛАШТУВАННЯ / РЕЗЕРВНА КОПІЯ ---------- */
+document.getElementById('settingsBtn').addEventListener('click', openSettingsForm);
+function openSettingsForm(){
+  modalBody.innerHTML = `
+    <h2>Резервна копія даних</h2>
+    <div class="helper">Тут — усі ваші дані (учні, оплати, уроки, тарифи) у форматі тексту. Скопіюйте його, щоб зберегти або перенести на інший пристрій. Щоб завантажити дані — вставте текст і натисніть «Імпортувати». Нікому не пересилайте цей текст публічно — тут особисті дані учнів.</div>
+    <div class="field"><label>Дані (JSON)</label><textarea id="f_backup" rows="10">${JSON.stringify(db)}</textarea></div>
+    <div class="btn-row">
+      <button class="btn" onclick="importBackup()">Імпортувати (замінити поточні дані)</button>
+    </div>
+    <button class="btn secondary" onclick="closeModal()">Закрити</button>
+  `;
+  overlay.classList.add('open');
+}
+function importBackup(){
+  let parsed;
+  try{ parsed = JSON.parse(document.getElementById('f_backup').value); }
+  catch(e){ alert('Не вдалося прочитати текст. Перевірте, що це коректний JSON.'); return; }
+  if(!parsed || !Array.isArray(parsed.students) || !Array.isArray(parsed.tariffs)){
+    alert('Формат даних не розпізнано.'); return;
+  }
+  if(!confirm('Замінити всі поточні дані застосунку цими даними? Це не можна скасувати.')) return;
+  db = parsed;
+  if(typeof db.seq !== 'number'){
+    const ids = [].concat(db.students, db.tariffs, db.payments||[], db.lessons||[]).map(x=>x.id||0);
+    db.seq = (ids.length ? Math.max(...ids) : 0) + 1;
+  }
+  saveDB(); closeModal(); showView('dashboard');
 }
 
 /* ---------- FAB (кнопка додавання, контекстна) ---------- */
