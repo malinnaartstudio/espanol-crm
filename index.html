@@ -249,6 +249,77 @@ if(db.tariffs.length === 0){
 /* рівні курсу (CEFR) */
 const LEVELS = ['A1','A2','B1','B2','C1','C2'];
 
+/* сідові теми уроків для першого запуску (програма курсу A1/A2) */
+if(db.lessonTopics.length === 0){
+  const A1 = [
+    'Lección 1: Alfabeto y pronunciación',
+    'Lección 2: Saludos y presentaciones. Verbo ser',
+    'Lección 3: Los números',
+    'Lección 4: Verbo estar, hay. Las fechas',
+    'Lección 5: Preposiciones y adverbios de lugar',
+    'Lección 6: Presente de los verbos regulares. Interrogativos',
+    'Lección 7: Presente de los verbos irregulares',
+    'Lección 8: Verbos tener, saber y conocer',
+    'Lección 9: Posesivos',
+    'Lección 10: Muy y mucho. Hace...',
+    'Lección 11: Verbos reflexivos',
+    'Lección 12: Los verbos de objeto indirecto. Gustar',
+    'Lección 13: Demostrativos. Coincidencia y divergencia',
+    'Lección 14: Adverbios. Construcciones negativas con nada y nunca',
+    'Lección 15: Verbos + infinitivos',
+    'Lección 16: Comida. Elementos. Restaurantes',
+    'Lección 17: Expresión de obligación',
+    'Lección 18: Tu casa. Tipos de vivienda',
+    'Lección 19: Expresar una acción futura. Ir + a + infinitivo',
+    'Lección 20: Cuerpo humano. Salud',
+    'Lección 21: La comparación. Expresar énfasis',
+    'Lección 22: Emergencias y seguridad',
+    'Lección 23: El pretérito perfecto',
+    'Lección 24: Verbos irregulares en el pretérito perfecto',
+    'Lección 25: Transporte',
+    'Lección 26: Preposiciones a, de, en, por, con y sin',
+    'Lección 27: Educación',
+    'Lección 28: Trabajo',
+    'Lección 29: Pronombres de objeto directo y indirecto',
+    'Lección 30: Diferencias culturales, reglas no escritas'
+  ];
+  const A2 = [
+    'Lección 1: Usos de ser y estar',
+    'Lección 2: Expresar sentimientos y emociones',
+    'Lección 3: Describir a personas física y emocionalmente',
+    'Lección 4: Construcciones de obligación',
+    'Lección 5: El gerundio',
+    'Lección 6: Conversaciones y mensajes telefónicos',
+    'Lección 7: Pretérito indefinido: verbos regulares',
+    'Lección 8: Pretérito indefinido: verbos irregulares',
+    'Lección 9: Hablar de experiencias pasadas',
+    'Lección 10: Más verbos irregulares en indefinido',
+    'Lección 11: Los indefinidos (algo, alguien, nada, todo, ninguno…)',
+    'Lección 12: Historia de España',
+    'Lección 13: Pretérito imperfecto',
+    'Lección 14: Imperativo afirmativo',
+    'Lección 15: Imperativo con pronombres',
+    'Lección 16: Conjunciones básicas',
+    'Lección 17: Expresiones temporales',
+    'Lección 18: El futuro simple',
+    'Lección 19: Expresar duda o inseguridad',
+    'Lección 20: Vocabulario y usos de las TIC. Herramientas digitales cotidianas',
+    'Lección 21: Mi cuerpo y mi rutina diaria',
+    'Lección 22: Ir al médico. En la farmacia',
+    'Lección 23: Vivir bien. Consejos para una vida sana',
+    'Lección 24: Mi trabajo y mi experiencia profesional',
+    'Lección 25: Busco empleo. Ofertas y anuncios laborales',
+    'Lección 26: En una entrevista. Habilidades, experiencia, disponibilidad',
+    'Lección 27: El transporte en España',
+    'Lección 28: Planificar un viaje',
+    'Lección 29: En el aeropuerto y en el hotel. Reclamos y peticiones',
+    'Lección 30: Cierre del nivel A2'
+  ];
+  A1.forEach(name => db.lessonTopics.push({id:nextId(), level:'A1', name}));
+  A2.forEach(name => db.lessonTopics.push({id:nextId(), level:'A2', name}));
+  saveDB();
+}
+
 /* ---------- НАВІГАЦІЯ ---------- */
 const titles = {dashboard:'Дашборд', students:'Учні', payments:'Оплати', lessons:'Уроки', tariffs:'Тарифи'};
 function showView(name){
@@ -720,8 +791,9 @@ function importBackup(){
   }
   if(!confirm('Замінити всі поточні дані застосунку цими даними? Це не можна скасувати.')) return;
   db = parsed;
+  if(!Array.isArray(db.lessonTopics)) db.lessonTopics = [];
   if(typeof db.seq !== 'number'){
-    const ids = [].concat(db.students, db.tariffs, db.payments||[], db.lessons||[]).map(x=>x.id||0);
+    const ids = [].concat(db.students, db.tariffs, db.payments||[], db.lessons||[], db.lessonTopics).map(x=>x.id||0);
     db.seq = (ids.length ? Math.max(...ids) : 0) + 1;
   }
   saveDB(); closeModal(); showView('dashboard');
