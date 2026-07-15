@@ -651,10 +651,21 @@ function onTopicChange(){
     }
   }
 }
+function studentLessonsSorted(studentId){
+  return db.lessons.filter(l=>l.studentId===studentId)
+    .sort((a,b)=> new Date(a.date)-new Date(b.date) || a.id-b.id);
+}
 function openLessonForm(id){
   const l = id ? db.lessons.find(x=>x.id===id) : null;
   if(!db.students.length){ alert('Спочатку додайте хоча б одного учня'); return; }
   const level = l&&l.level ? l.level : LEVELS[0];
+  let prevLesson = null, nextLesson = null;
+  if(l){
+    const siblings = studentLessonsSorted(l.studentId);
+    const idx = siblings.findIndex(x=>x.id===id);
+    prevLesson = idx>0 ? siblings[idx-1] : null;
+    nextLesson = idx<siblings.length-1 ? siblings[idx+1] : null;
+  }
   modalBody.innerHTML = `
     <h2>${l?'Редагувати урок':'Новий урок'}</h2>
     <div class="field"><label>Учень *</label><select id="f_student">${studentOptions(l?l.studentId:null)}</select></div>
@@ -681,6 +692,10 @@ function openLessonForm(id){
       ${l?'<button class="btn danger" onclick="deleteLesson('+id+')">Видалити</button>':''}
     </div>
     <button class="btn secondary" onclick="closeModal()">Скасувати</button>
+    ${l?`<div class="btn-row" style="margin-top:10px;">
+      <button class="btn secondary" ${prevLesson?`onclick="openLessonForm(${prevLesson.id})"`:'disabled style="opacity:.4;"'}>← Попередній урок</button>
+      <button class="btn secondary" ${nextLesson?`onclick="openLessonForm(${nextLesson.id})"`:'disabled style="opacity:.4;"'}>Наступний урок →</button>
+    </div>`:''}
   `;
   overlay.classList.add('open');
 }
