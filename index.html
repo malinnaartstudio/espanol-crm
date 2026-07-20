@@ -311,6 +311,7 @@ let gcalTokenClient = null;
 let gcalAccessToken = null;
 let gcalConnected = localStorage.getItem('gcalConnected_v1') === '1';
 let gcalPendingResolve = null;
+let gcalSyncAllInProgress = false;
 
 function ensureGcalTokenClient(){
   if(gcalTokenClient || !window.google || !google.accounts || !google.accounts.oauth2) return;
@@ -426,11 +427,17 @@ async function removeLessonFromCalendar(lessonId){
 }
 async function syncAllLessonsToCalendar(showAlert){
   if(!gcalConnected) return;
-  const list = db.lessons.slice();
-  for(const lesson of list){
-    await syncLessonToCalendar(lesson);
+  if(gcalSyncAllInProgress){ alert('Синхронізація вже виконується, зачекайте — не натискайте кнопку повторно.'); return; }
+  gcalSyncAllInProgress = true;
+  try{
+    const list = db.lessons.slice();
+    for(const lesson of list){
+      await syncLessonToCalendar(lesson);
+    }
+    if(showAlert !== false) alert('Синхронізовано уроків: ' + list.length);
+  } finally {
+    gcalSyncAllInProgress = false;
   }
-  if(showAlert !== false) alert('Синхронізовано уроків: ' + list.length);
 }
 async function sendLessonInviteToStudent(lessonId){
   const lesson = db.lessons.find(x=>x.id===lessonId);
