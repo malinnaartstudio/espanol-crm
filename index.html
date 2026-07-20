@@ -163,10 +163,34 @@
   .dot.cancelled_student, .dot.cancelled_teacher{background:var(--red);}
   .dot.rescheduled{background:var(--amber);}
   .badge.scheduled{background:#dbeafe;color:#2563eb;}
+
+  #authScreen{
+    position:fixed;inset:0;background:var(--bg);z-index:50;
+    display:none;align-items:center;justify-content:center;padding:24px;
+  }
+  #authScreen .box{width:100%;max-width:340px;}
+  #authScreen h1{text-align:center;color:var(--accent);margin:0 0 4px;font-size:22px;}
+  #authScreen .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:24px;}
+  #authScreen .err{color:var(--red);font-size:12px;margin:-4px 0 10px;min-height:14px;}
 </style>
 </head>
 <body>
-<div id="app">
+
+<div id="authScreen">
+  <div class="box">
+    <h1>Español CRM</h1>
+    <div class="sub">Вхід до вашого кабінету</div>
+    <form id="loginForm">
+      <div class="field"><label>Email</label><input type="email" id="loginEmail" required autocomplete="username"></div>
+      <div class="field"><label>Пароль</label><input type="password" id="loginPassword" required autocomplete="current-password"></div>
+      <div class="err" id="loginError"></div>
+      <button type="submit" class="btn" id="loginSubmitBtn">Увійти</button>
+    </form>
+    <button class="btn secondary" id="toggleSignupBtn" type="button" style="margin-top:8px;">Ще немає акаунта? Створити</button>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
 
   <header class="topbar">
     <div>
@@ -256,34 +280,63 @@
   <div class="modal" id="modalBody"></div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
 <script>
-/* ---------- ЗБЕРІГАННЯ ДАНИХ (localStorage) ---------- */
+/* ---------- FIREBASE (Firestore + Auth) ---------- */
+/* Це публічний веб-конфіг Firebase (не пароль і не секрет) — безпека даних
+   забезпечується через Firebase Authentication + Firestore Security Rules,
+   що дозволяють читати/писати лише документ з uid саме того користувача,
+   який увійшов у систему. */
+const firebaseConfig = {
+  apiKey: "AIzaSyCMTo8SZ1tOj6rYTALjmr4RIM6PNOZFsSA",
+  authDomain: "espanol-crm-data.firebaseapp.com",
+  projectId: "espanol-crm-data",
+  storageBucket: "espanol-crm-data.firebasestorage.app",
+  messagingSenderId: "953802706633",
+  appId: "1:953802706633:web:e662715baf480e4232c718"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const firestore = firebase.firestore();
+let currentUser = null;
+
+/* ---------- ЗБЕРІГАННЯ ДАНИХ (Firestore, з міграцією зі старого localStorage) ---------- */
 const DB_KEY = 'espanolCrmData_v1';
-function loadDB(){
+function emptyDB(){ return { students:[], tariffs:[], payments:[], lessons:[], lessonTopics:[], seq:1 }; }
+function loadLegacyLocalDB(){
   const raw = localStorage.getItem(DB_KEY);
   if(raw){ try{ return JSON.parse(raw); }catch(e){} }
-  return { students:[], tariffs:[], payments:[], lessons:[], lessonTopics:[], seq:1 };
+  return null;
 }
-function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
-let db = loadDB();
-if(!Array.isArray(db.lessonTopics)) db.lessonTopics = [];
+let db = emptyDB();
+function saveDB(){
+  if(!currentUser) return;
+  firestore.collection('users').doc(currentUser.uid).collection('data').doc('main')
+    .set(db)
+    .catch(err=>console.error('Помилка збереження в Firestore:', err));
+}
 function nextId(){ return db.seq++; }
 
-/* сідові тарифи для першого запуску (актуальні тарифи курсу, EUR) */
-if(db.tariffs.length === 0){
-  db.tariffs.push(
-    {id:nextId(), name:'Автоперевірка (самостійно, 30 уроків)', pricePerLesson:5, lessonsInPackage:30, packagePrice:150},
-    {id:nextId(), name:'З куратором (30 уроків)', pricePerLesson:10, lessonsInPackage:30, packagePrice:300},
-    {id:nextId(), name:'Індивідуальні уроки з викладачем (30 год)', pricePerLesson:15, lessonsInPackage:30, packagePrice:450}
-  );
-  saveDB();
+function seedTariffsIfEmpty(){
+  /* сідові тарифи для першого запуску (актуальні тарифи курсу, EUR) */
+  if(db.tariffs.length === 0){
+    db.tariffs.push(
+      {id:nextId(), name:'Автоперевірка (самостійно, 30 уроків)', pricePerLesson:5, lessonsInPackage:30, packagePrice:150},
+      {id:nextId(), name:'З куратором (30 уроків)', pricePerLesson:10, lessonsInPackage:30, packagePrice:300},
+      {id:nextId(), name:'Індивідуальні уроки з викладачем (30 год)', pricePerLesson:15, lessonsInPackage:30, packagePrice:450}
+    );
+    saveDB();
+  }
 }
 
 /* рівні курсу (CEFR) */
 const LEVELS = ['A1','A2','B1','B2','C1','C2'];
 
-/* сідові теми уроків для першого запуску (програма курсу A1/A2) */
-if(db.lessonTopics.length === 0){
+function seedLessonTopicsIfEmpty(){
+  /* сідові теми уроків для першого запуску (програма курсу A1/A2) */
+  if(db.lessonTopics.length !== 0) return;
   const A1 = [
     'Lección 1: Alfabeto y pronunciación',
     'Lección 2: Saludos y presentaciones. Verbo ser',
@@ -352,6 +405,68 @@ if(db.lessonTopics.length === 0){
   A2.forEach(name => db.lessonTopics.push({id:nextId(), level:'A2', name}));
   saveDB();
 }
+
+/* ---------- АВТЕНТИФІКАЦІЯ + ЗАВАНТАЖЕННЯ ДАНИХ ПІСЛЯ ВХОДУ ---------- */
+async function loadAndBootFromFirestore(user){
+  const docRef = firestore.collection('users').doc(user.uid).collection('data').doc('main');
+  const snap = await docRef.get();
+  if(snap.exists){
+    db = snap.data();
+  } else {
+    /* документа в Firestore ще немає — одноразова міграція старих даних із localStorage цього браузера */
+    const legacy = loadLegacyLocalDB();
+    db = legacy || emptyDB();
+    await docRef.set(db);
+  }
+  if(!Array.isArray(db.lessonTopics)) db.lessonTopics = [];
+  if(typeof db.seq !== 'number'){
+    const ids = [].concat(db.students||[], db.tariffs||[], db.payments||[], db.lessons||[], db.lessonTopics||[]).map(x=>x.id||0);
+    db.seq = (ids.length ? Math.max(...ids) : 0) + 1;
+  }
+  seedTariffsIfEmpty();
+  seedLessonTopicsIfEmpty();
+  renderAll();
+}
+
+let signupMode = false;
+document.getElementById('toggleSignupBtn').addEventListener('click', ()=>{
+  signupMode = !signupMode;
+  document.getElementById('loginSubmitBtn').textContent = signupMode ? 'Створити акаунт' : 'Увійти';
+  document.getElementById('toggleSignupBtn').textContent = signupMode ? 'Вже є акаунт? Увійти' : 'Ще немає акаунта? Створити';
+  document.getElementById('loginError').textContent = '';
+});
+document.getElementById('loginForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  const action = signupMode
+    ? auth.createUserWithEmailAndPassword(email, password)
+    : auth.signInWithEmailAndPassword(email, password);
+  action.catch(err=>{ errEl.textContent = 'Помилка: ' + (err.message || err.code || err); });
+});
+function logout(){
+  if(!confirm('Вийти з акаунта?')) return;
+  auth.signOut();
+}
+auth.onAuthStateChanged(function(user){
+  const authScreen = document.getElementById('authScreen');
+  const appEl = document.getElementById('app');
+  if(user){
+    currentUser = user;
+    authScreen.style.display = 'none';
+    appEl.style.display = 'flex';
+    loadAndBootFromFirestore(user).catch(err=>{
+      console.error('Помилка завантаження даних з Firestore:', err);
+      alert('Не вдалося завантажити дані. Перевірте інтернет-з’єднання і оновіть сторінку.');
+    });
+  } else {
+    currentUser = null;
+    appEl.style.display = 'none';
+    authScreen.style.display = 'flex';
+  }
+});
 
 /* ---------- НАВІГАЦІЯ ---------- */
 const titles = {dashboard:'Дашборд', students:'Учні', payments:'Оплати', lessons:'Уроки', schedule:'Розклад', tariffs:'Тарифи'};
@@ -926,6 +1041,7 @@ function openSettingsForm(){
       <button class="btn" onclick="importBackup()">Імпортувати (замінити поточні дані)</button>
     </div>
     <button class="btn secondary" onclick="closeModal()">Закрити</button>
+    <button class="btn danger" style="margin-top:14px;" onclick="closeModal();logout()">🚪 Вийти з акаунта</button>
   `;
   overlay.classList.add('open');
 }
@@ -978,8 +1094,8 @@ document.getElementById('fabAdd').addEventListener('click', ()=>{
   else openStudentForm();
 });
 
-/* ---------- ПЕРШИЙ РЕНДЕР ---------- */
-renderAll();
+/* Перший рендер відбувається автоматично після входу — див. loadAndBootFromFirestore(),
+   яку викликає auth.onAuthStateChanged() вище. */
 </script>
 </body>
 </html>
