@@ -424,6 +424,29 @@ async function removeLessonFromCalendar(lessonId){
     }
   }catch(e){ console.error('Помилка видалення уроку з Google Calendar:', e); }
 }
+async function sendLessonInviteToStudent(lessonId){
+  const lesson = db.lessons.find(x=>x.id===lessonId);
+  if(!lesson) return;
+  const student = getStudent(lesson.studentId);
+  if(!student || !student.email){ alert("У цього учня не вказано email. Додайте email у картці учня (кнопка «Редагувати учня»)."); return; }
+  if(!gcalConnected){ alert('Спочатку підключіть Google Calendar у Налаштуваннях (⚙️ → Підключити Google Calendar).'); return; }
+  try{
+    const token = await getGcalAccessToken(false);
+    if(!token){ alert('Не вдалося отримати доступ до Google Calendar. Спробуйте перепідключити його в Налаштуваннях.'); return; }
+    const body = buildGcalEventBody(lesson);
+    body.attendees = [{ email: student.email }];
+    const base = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(GCAL_CALENDAR_ID) + '/events';
+    const existingId = await findGcalEventIdByCrmId(token, lesson.id);
+    const url = (existingId ? (base + '/' + existingId) : base) + '?sendUpdates=all';
+    const res = await fetch(url, {
+      method: existingId ? 'PATCH' : 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if(res.ok) alert('Запрошення на урок надіслано на ' + student.email);
+    else alert('Не вдалося надіслати запрошення. Спробуйте ще раз.');
+  }catch(e){ console.error('Помилка надсилання запрошення учню:', e); alert('Помилка надсилання запрошення.'); }
+}
 
 /* ---------- ЗБЕРІГАННЯ ДАНИХ (Firestore, з міграцією зі старого localStorage) ---------- */
 const DB_KEY = 'espanolCrmData_v1';
@@ -650,7 +673,7 @@ function renderDashboard(){
   const platformStats = document.getElementById('platformStats');
   const pKeys = Object.keys(platforms);
   platformStats.innerHTML = pKeys.length ? pKeys.map(p=>`
-    <div class="list-item"><div class="name">${p}</div><span class="badge ok">${platforms[p]}</span></div>
+    <div class="list-item" onclick="openPlatformStudents('${p.replace(/'/g,"\\'")}')"><div class="name">${p}</div><span class="badge ok">${platforms[p]}</span></div>
   `).join('') : '<div class="empty">Немає даних</div>';
 
   const channels = {};
@@ -660,6 +683,22 @@ function renderDashboard(){
   channelStats.innerHTML = cKeys.length ? cKeys.map(c=>`
     <div class="list-item" onclick="openChannelStudents('${c.replace(/'/g,"\\'")}')"><div class="name">${c}</div><span class="badge ok">${channels[c]}</span></div>
   `).join('') : '<div class="empty">Немає даних</div>';
+}
+
+/* ---------- ПЛАТФОРМА → СПИСОК УЧНІВ ---------- */
+function openPlatformStudents(platform){
+  const list = db.students.filter(s=>(s.platform||'Не вказано')===platform)
+    .sort((a,b)=>studentName(a).localeCompare(studentName(b),'uk'));
+  const itemsHtml = list.map(s=>`
+    <div class="list-item" onclick="closeModal();openStudentForm(${s.id})">
+      <div><div class="name">${studentName(s)}</div><div class="meta">${s.phone||'—'}</div></div>
+    </div>`).join('');
+  modalBody.innerHTML = `
+    <h2>${platform} (${list.length})</h2>
+    <div class="list-card">${itemsHtml || '<div class="empty">Немає учнів</div>'}</div>
+    <button class="btn secondary" onclick="closeModal()">Закрити</button>
+  `;
+  overlay.classList.add('open');
 }
 
 /* ---------- КАНАЛ → СПИСОК УЧНІВ ---------- */
@@ -1083,6 +1122,7 @@ function openLessonForm(id, presetDate){
       ${l?'<button class="btn danger" onclick="deleteLesson('+id+')">Видалити</button>':''}
     </div>
     <button class="btn secondary" onclick="closeModal()">Скасувати</button>
+    ${l?`<button class="btn secondary" style="margin-top:10px;" onclick="sendLessonInviteToStudent(${id})">📧 Надіслати запрошення учню на email</button>`:''}
     ${l?`<div class="btn-row" style="margin-top:10px;">
       <button class="btn secondary" ${prevLesson?`onclick="openLessonForm(${prevLesson.id})"`:'disabled style="opacity:.4;"'}>← Попередній урок</button>
       <button class="btn secondary" ${nextLesson?`onclick="openLessonForm(${nextLesson.id})"`:'disabled style="opacity:.4;"'}>Наступний урок →</button>
