@@ -283,6 +283,7 @@
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 /* ---------- FIREBASE (Firestore + Auth) ---------- */
 /* Це публічний веб-конфіг Firebase (не пароль і не секрет) — безпека даних
@@ -301,6 +302,128 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const firestore = firebase.firestore();
 let currentUser = null;
+
+/* ---------- GOOGLE CALENDAR (миттєва синхронізація уроків, клієнтська) ---------- */
+const GOOGLE_CLIENT_ID = '953802706633-79vavehjg3bljpvv1eutnehjjmf2jf4c.apps.googleusercontent.com';
+const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+const GCAL_CALENDAR_ID = '61091992b3c34f16a29521b32e628d2538250bef596fef8dd7087f5422b8953a@group.calendar.google.com';
+let gcalTokenClient = null;
+let gcalAccessToken = null;
+let gcalConnected = localStorage.getItem('gcalConnected_v1') === '1';
+let gcalPendingResolve = null;
+
+function ensureGcalTokenClient(){
+  if(gcalTokenClient || !window.google || !google.accounts || !google.accounts.oauth2) return;
+  gcalTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: GOOGLE_CALENDAR_SCOPE,
+    callback: (resp) => {
+      if(resp && resp.access_token){
+        gcalAccessToken = resp.access_token;
+        gcalConnected = true;
+        localStorage.setItem('gcalConnected_v1', '1');
+      }
+      if(gcalPendingResolve){ const r = gcalPendingResolve; gcalPendingResolve = null; r(resp && resp.access_token ? resp.access_token : null); }
+    },
+    error_callback: () => {
+      if(gcalPendingResolve){ const r = gcalPendingResolve; gcalPendingResolve = null; r(null); }
+    }
+  });
+}
+function getGcalAccessToken(interactive){
+  return new Promise((resolve)=>{
+    ensureGcalTokenClient();
+    if(!gcalTokenClient){ resolve(null); return; }
+    if(gcalAccessToken){ resolve(gcalAccessToken); return; }
+    if(!interactive && !gcalConnected){ resolve(null); return; }
+    gcalPendingResolve = resolve;
+    try{ gcalTokenClient.requestAccessToken({prompt: interactive ? 'consent' : ''}); }
+    catch(e){ gcalPendingResolve = null; resolve(null); }
+  });
+}
+function connectGoogleCalendar(){
+  ensureGcalTokenClient();
+  if(!gcalTokenClient){ alert('Google ще завантажується. Спробуйте ще раз за кілька секунд.'); return; }
+  gcalPendingResolve = (token)=>{
+    if(token) alert('Google Calendar підключено! Тепер уроки будуть автоматично з’являтися у календарі "Розклад уроків".');
+    else alert('Не вдалося підключити Google Calendar. Спробуйте ще раз.');
+    closeModal(); openSettingsForm();
+  };
+  try{ gcalTokenClient.requestAccessToken({prompt:'consent'}); }
+  catch(e){ gcalPendingResolve = null; }
+}
+function disconnectGoogleCalendar(){
+  if(!confirm('Відключити автоматичну синхронізацію з Google Calendar?')) return;
+  gcalAccessToken = null; gcalConnected = false;
+  localStorage.removeItem('gcalConnected_v1');
+  closeModal(); openSettingsForm();
+}
+function shiftTimeStr(timeStr, minutes){
+  const parts = (timeStr||'00:00').split(':').map(Number);
+  const base = new Date(2000,0,1,parts[0]||0,parts[1]||0);
+  base.setMinutes(base.getMinutes()+minutes);
+  const pad = n=>String(n).padStart(2,'0');
+  return pad(base.getHours())+':'+pad(base.getMinutes());
+}
+function buildGcalEventBody(lesson){
+  const student = getStudent(lesson.studentId);
+  const topic = getTopic(lesson.topicId);
+  const themeStr = [lesson.level, topic?topic.name:null].filter(Boolean).join(' · ');
+  const statusLabel = (typeof LESSON_STATUS_LABEL!=='undefined' && LESSON_STATUS_LABEL[lesson.status]) || lesson.status;
+  const summary = (student?studentName(student):'Учень #'+lesson.studentId) + (themeStr?' — '+themeStr:'') + ' ['+statusLabel+']';
+  const body = {
+    summary: summary,
+    description: 'Статус: ' + statusLabel + (themeStr ? ('\n'+themeStr) : '') + '\n[CRM-ID:' + lesson.id + ']',
+    extendedProperties: { private: { crmId: String(lesson.id) } },
+  };
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid';
+  if(lesson.time){
+    body.start = { dateTime: lesson.date + 'T' + lesson.time + ':00', timeZone: tz };
+    body.end = { dateTime: lesson.date + 'T' + shiftTimeStr(lesson.time, 60) + ':00', timeZone: tz };
+  } else {
+    body.start = { date: lesson.date };
+    body.end = { date: lesson.date };
+  }
+  const colorMap = {scheduled:'9', conducted:'10', cancelled_student:'11', cancelled_teacher:'11', rescheduled:'5'};
+  if(colorMap[lesson.status]) body.colorId = colorMap[lesson.status];
+  return body;
+}
+async function findGcalEventIdByCrmId(token, lessonId){
+  const url = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(GCAL_CALENDAR_ID)
+    + '/events?privateExtendedProperty=' + encodeURIComponent('crmId=' + lessonId);
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if(!res.ok) return null;
+  const data = await res.json();
+  return (data.items && data.items[0]) ? data.items[0].id : null;
+}
+async function syncLessonToCalendar(lesson){
+  if(!lesson || !gcalConnected) return;
+  try{
+    const token = await getGcalAccessToken(false);
+    if(!token) return;
+    const body = buildGcalEventBody(lesson);
+    const base = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(GCAL_CALENDAR_ID) + '/events';
+    const existingId = await findGcalEventIdByCrmId(token, lesson.id);
+    const url = existingId ? (base + '/' + existingId) : base;
+    await fetch(url, {
+      method: existingId ? 'PATCH' : 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  }catch(e){ console.error('Помилка синхронізації уроку з Google Calendar:', e); }
+}
+async function removeLessonFromCalendar(lessonId){
+  if(!gcalConnected) return;
+  try{
+    const token = await getGcalAccessToken(false);
+    if(!token) return;
+    const existingId = await findGcalEventIdByCrmId(token, lessonId);
+    if(existingId){
+      const base = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(GCAL_CALENDAR_ID) + '/events';
+      await fetch(base + '/' + existingId, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+    }
+  }catch(e){ console.error('Помилка видалення уроку з Google Calendar:', e); }
+}
 
 /* ---------- ЗБЕРІГАННЯ ДАНИХ (Firestore, з міграцією зі старого localStorage) ---------- */
 const DB_KEY = 'espanolCrmData_v1';
@@ -977,14 +1100,17 @@ function saveLesson(id){
     topicId: (topicVal && topicVal !== '__new__') ? Number(topicVal) : null,
     status: document.getElementById('f_status').value,
   };
-  if(id){ Object.assign(db.lessons.find(x=>x.id===id), data); }
-  else { data.id = nextId(); db.lessons.push(data); }
+  let savedLesson;
+  if(id){ savedLesson = Object.assign(db.lessons.find(x=>x.id===id), data); }
+  else { data.id = nextId(); db.lessons.push(data); savedLesson = data; }
   saveDB(); closeModal(); showView(currentView==='schedule' ? 'schedule' : 'lessons');
+  syncLessonToCalendar(savedLesson);
 }
 function deleteLesson(id){
   if(!confirm('Видалити цей урок?')) return;
   db.lessons = db.lessons.filter(l=>l.id!==id);
   saveDB(); closeModal(); showView(currentView==='schedule' ? 'schedule' : 'lessons');
+  removeLessonFromCalendar(id);
 }
 
 function openTariffForm(id){
@@ -1030,7 +1156,12 @@ function deleteTariff(id){
 document.getElementById('settingsBtn').addEventListener('click', openSettingsForm);
 function openSettingsForm(){
   modalBody.innerHTML = `
-    <h2>Резервна копія даних</h2>
+    <h2>Google Calendar</h2>
+    <div class="helper">Коли увімкнено, кожне збереження чи видалення уроку одразу створює/оновлює/видаляє відповідну подію в календарі "Розклад уроків".</div>
+    ${gcalConnected
+      ? '<button class="btn secondary" onclick="disconnectGoogleCalendar()">✅ Підключено — відключити</button>'
+      : '<button class="btn" onclick="connectGoogleCalendar()">🔗 Підключити Google Calendar</button>'}
+    <h2 style="margin-top:22px;">Резервна копія даних</h2>
     <div class="helper">Натисніть «Завантажити файл», щоб зберегти файл-копію всіх даних (учні, оплати, уроки, тарифи) на комп'ютер чи планшет — це найнадійніший спосіб не втратити дані, якщо браузер колись очистить пам'ять. Файл можна відкрити пізніше через «Імпортувати». Нікому не пересилайте цей файл публічно — там особисті дані учнів.</div>
     <div class="btn-row">
       <button class="btn" onclick="downloadBackup()">⬇️ Завантажити файл резервної копії</button>
