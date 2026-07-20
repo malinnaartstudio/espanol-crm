@@ -420,8 +420,38 @@ function renderDashboard(){
   const channelStats = document.getElementById('channelStats');
   const cKeys = Object.keys(channels);
   channelStats.innerHTML = cKeys.length ? cKeys.map(c=>`
-    <div class="list-item"><div class="name">${c}</div><span class="badge ok">${channels[c]}</span></div>
+    <div class="list-item" onclick="openChannelStudents('${c.replace(/'/g,"\\'")}')"><div class="name">${c}</div><span class="badge ok">${channels[c]}</span></div>
   `).join('') : '<div class="empty">Немає даних</div>';
+}
+
+/* ---------- КАНАЛ → СПИСОК УЧНІВ ---------- */
+function openChannelStudents(channel){
+  const list = db.students.filter(s=>(s.channel||'Не вказано')===channel)
+    .sort((a,b)=>studentName(a).localeCompare(studentName(b),'uk'));
+  const itemsHtml = list.map(s=>`
+    <div class="list-item" onclick="closeModal();openStudentForm(${s.id})">
+      <div><div class="name">${studentName(s)}</div><div class="meta">${s.phone||'—'}</div></div>
+    </div>`).join('');
+  modalBody.innerHTML = `
+    <h2>${channel} (${list.length})</h2>
+    <div class="list-card">${itemsHtml || '<div class="empty">Немає учнів</div>'}</div>
+    <button class="btn secondary" onclick="closeModal()">Закрити</button>
+  `;
+  overlay.classList.add('open');
+}
+
+/* ---------- КНОПКА ЗВ'ЯЗКУ (Telegram / WhatsApp / Viber / Дзвінок) ---------- */
+function contactLink(s){
+  if(!s.phone) return null;
+  const digits = s.phone.replace(/[^\d]/g,'');
+  if(!digits) return null;
+  switch(s.channel){
+    case 'WhatsApp': return {url:'https://wa.me/'+digits, label:'💬 Написати у WhatsApp'};
+    case 'Telegram': return {url:'https://t.me/+'+digits, label:'✈️ Написати у Telegram'};
+    case 'Viber': return {url:'viber://chat?number='+digits, label:'📞 Написати у Viber'};
+    case 'Дзвінок': return {url:'tel:+'+digits, label:'📱 Подзвонити'};
+    default: return {url:'tel:+'+digits, label:'📱 Подзвонити'};
+  }
 }
 
 /* ---------- РЕНДЕР: УЧНІ ---------- */
@@ -620,8 +650,10 @@ function studentOptions(selectedId){
 
 function openStudentForm(id){
   const s = id ? getStudent(id) : null;
+  const link = s ? contactLink(s) : null;
   modalBody.innerHTML = `
     <h2>${s?'Редагувати учня':'Новий учень'}</h2>
+    ${link?`<a class="btn" style="text-decoration:none;text-align:center;display:block;" href="${link.url}" target="_blank" rel="noopener">${link.label}</a>`:''}
     <div class="field"><label>Ім'я *</label><input id="f_firstName" value="${s?s.firstName:''}"></div>
     <div class="field"><label>Прізвище</label><input id="f_lastName" value="${s?s.lastName:''}"></div>
     <div class="field"><label>Телефон</label><input id="f_phone" value="${s?s.phone||'':''}" placeholder="+380..."></div>
