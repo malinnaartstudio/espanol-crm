@@ -424,6 +424,14 @@ async function removeLessonFromCalendar(lessonId){
     }
   }catch(e){ console.error('Помилка видалення уроку з Google Calendar:', e); }
 }
+async function syncAllLessonsToCalendar(showAlert){
+  if(!gcalConnected) return;
+  const list = db.lessons.slice();
+  for(const lesson of list){
+    await syncLessonToCalendar(lesson);
+  }
+  if(showAlert !== false) alert('Синхронізовано уроків: ' + list.length);
+}
 async function sendLessonInviteToStudent(lessonId){
   const lesson = db.lessons.find(x=>x.id===lessonId);
   if(!lesson) return;
@@ -1201,6 +1209,7 @@ function openSettingsForm(){
     ${gcalConnected
       ? '<button class="btn secondary" onclick="disconnectGoogleCalendar()">✅ Підключено — відключити</button>'
       : '<button class="btn" onclick="connectGoogleCalendar()">🔗 Підключити Google Calendar</button>'}
+    ${gcalConnected ? '<button class="btn secondary" style="margin-top:8px;" onclick="syncAllLessonsToCalendar()">🔄 Синхронізувати всі уроки зараз</button>' : ''}
     <h2 style="margin-top:22px;">Резервна копія даних</h2>
     <div class="helper">Натисніть «Завантажити файл», щоб зберегти файл-копію всіх даних (учні, оплати, уроки, тарифи) на комп'ютер чи планшет — це найнадійніший спосіб не втратити дані, якщо браузер колись очистить пам'ять. Файл можна відкрити пізніше через «Імпортувати». Нікому не пересилайте цей файл публічно — там особисті дані учнів.</div>
     <div class="btn-row">
@@ -1253,6 +1262,11 @@ function importBackup(){
     db.seq = (ids.length ? Math.max(...ids) : 0) + 1;
   }
   saveDB(); closeModal(); showView('dashboard');
+  if(gcalConnected){
+    if(confirm('Синхронізувати всі уроки з Google Calendar зараз? (може зайняти хвилину)')){
+      syncAllLessonsToCalendar();
+    }
+  }
 }
 
 /* ---------- FAB (кнопка додавання, контекстна) ---------- */
