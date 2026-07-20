@@ -400,7 +400,8 @@ async function findGcalEventIdByCrmId(token, lessonId){
 async function syncLessonToCalendar(lesson){
   if(!lesson || !gcalConnected) return;
   try{
-    const token = await getGcalAccessToken(false);
+    let token = await getGcalAccessToken(false);
+    if(!token) token = await getGcalAccessToken(true);
     if(!token) return;
     const body = buildGcalEventBody(lesson);
     const base = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(GCAL_CALENDAR_ID) + '/events';
@@ -416,7 +417,8 @@ async function syncLessonToCalendar(lesson){
 async function removeLessonFromCalendar(lessonId){
   if(!gcalConnected) return;
   try{
-    const token = await getGcalAccessToken(false);
+    let token = await getGcalAccessToken(false);
+    if(!token) token = await getGcalAccessToken(true);
     if(!token) return;
     const existingId = await findGcalEventIdByCrmId(token, lessonId);
     if(existingId){
@@ -446,7 +448,8 @@ async function sendLessonInviteToStudent(lessonId){
   if(!student || !student.email){ alert("У цього учня не вказано email. Додайте email у картці учня (кнопка «Редагувати учня»)."); return; }
   if(!gcalConnected){ alert('Спочатку підключіть Google Calendar у Налаштуваннях (⚙️ → Підключити Google Calendar).'); return; }
   try{
-    const token = await getGcalAccessToken(false);
+    let token = await getGcalAccessToken(false);
+    if(!token) token = await getGcalAccessToken(true);
     if(!token){ alert('Не вдалося отримати доступ до Google Calendar. Спробуйте перепідключити його в Налаштуваннях.'); return; }
     const body = buildGcalEventBody(lesson);
     body.attendees = [{ email: student.email }];
