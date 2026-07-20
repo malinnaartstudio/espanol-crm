@@ -143,6 +143,26 @@
   .balance{font-weight:700;}
   .balance.neg{color:var(--red);}
   .balance.pos{color:var(--green);}
+
+  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .cal-title{font-weight:700;font-size:15px;}
+  .cal-nav{background:var(--card);border:1px solid var(--border);border-radius:8px;width:34px;height:34px;font-size:18px;color:var(--text);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px;}
+  .cal-dow{font-size:10px;color:var(--muted);text-align:center;font-weight:700;padding-bottom:2px;}
+  .cal-day{
+    position:relative;aspect-ratio:1;border-radius:10px;background:var(--card);
+    border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:12px;color:var(--text);
+  }
+  .cal-day.empty{background:transparent;border-color:transparent;}
+  .cal-day.today{border-color:var(--accent);border-width:2px;}
+  .cal-day .dots{display:flex;gap:2px;margin-top:2px;}
+  .cal-day .dot{width:5px;height:5px;border-radius:50%;}
+  .dot.scheduled{background:#2563eb;}
+  .dot.conducted{background:var(--green);}
+  .dot.cancelled_student, .dot.cancelled_teacher{background:var(--red);}
+  .dot.rescheduled{background:var(--amber);}
+  .badge.scheduled{background:#dbeafe;color:#2563eb;}
 </style>
 </head>
 <body>
@@ -201,6 +221,18 @@
       <div class="list-card" id="lessonsList"><div class="empty">Уроків ще немає.</div></div>
     </section>
 
+    <!-- SCHEDULE (CALENDAR) -->
+    <section class="view" id="view-schedule">
+      <div class="cal-header">
+        <button class="cal-nav" id="calPrev">‹</button>
+        <div class="cal-title" id="calTitle">—</div>
+        <button class="cal-nav" id="calNext">›</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="section-title">Найближчі уроки</div>
+      <div class="list-card" id="upcomingList"><div class="empty">Немає запланованих уроків.</div></div>
+    </section>
+
     <!-- TARIFFS -->
     <section class="view" id="view-tariffs">
       <div class="list-card" id="tariffsList"><div class="empty">Тарифів ще немає.</div></div>
@@ -215,6 +247,7 @@
     <button data-view="students"><span class="ic">👥</span>Учні</button>
     <button data-view="payments"><span class="ic">💳</span>Оплати</button>
     <button data-view="lessons"><span class="ic">📅</span>Уроки</button>
+    <button data-view="schedule"><span class="ic">🗓️</span>Розклад</button>
     <button data-view="tariffs"><span class="ic">🏷️</span>Тарифи</button>
   </nav>
 </div>
@@ -321,7 +354,7 @@ if(db.lessonTopics.length === 0){
 }
 
 /* ---------- НАВІГАЦІЯ ---------- */
-const titles = {dashboard:'Дашборд', students:'Учні', payments:'Оплати', lessons:'Уроки', tariffs:'Тарифи'};
+const titles = {dashboard:'Дашборд', students:'Учні', payments:'Оплати', lessons:'Уроки', schedule:'Розклад', tariffs:'Тарифи'};
 function showView(name){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+name).classList.add('active');
@@ -446,12 +479,12 @@ function renderPayments(){
 }
 
 /* ---------- РЕНДЕР: УРОКИ ---------- */
+const LESSON_STATUS_LABEL = {scheduled:'Заплановано', conducted:'Проведено', cancelled_student:'Скасував учень', cancelled_teacher:'Скасував викладач', rescheduled:'Перенесено'};
+const LESSON_STATUS_CLASS = {scheduled:'scheduled', conducted:'ok', cancelled_student:'debt', cancelled_teacher:'pause', rescheduled:'pause'};
 function renderLessons(){
   const el = document.getElementById('lessonsList');
-  const list = [...db.lessons].sort((a,b)=> new Date(b.date)-new Date(a.date));
+  const list = [...db.lessons].sort((a,b)=> new Date(b.date+'T'+(b.time||'00:00'))-new Date(a.date+'T'+(a.time||'00:00')));
   if(!list.length){ el.innerHTML = '<div class="empty">Уроків ще немає.</div>'; return; }
-  const statusLabel = {conducted:'Проведено', cancelled_student:'Скасував учень', cancelled_teacher:'Скасував викладач', rescheduled:'Перенесено'};
-  const statusClass = {conducted:'ok', cancelled_student:'debt', cancelled_teacher:'pause', rescheduled:'pause'};
   el.innerHTML = list.map(l=>{
     const s = getStudent(l.studentId);
     const topic = getTopic(l.topicId);
@@ -459,12 +492,96 @@ function renderLessons(){
     return `<div class="list-item" onclick="openLessonForm(${l.id})">
       <div>
         <div class="name">${s?studentName(s):'Учень видалений'}</div>
-        <div class="meta">${l.date}${themeStr?' · '+themeStr:''}</div>
+        <div class="meta">${l.date}${l.time?' '+l.time:''}${themeStr?' · '+themeStr:''}</div>
       </div>
-      <span class="badge ${statusClass[l.status]||'ok'}">${statusLabel[l.status]||l.status}</span>
+      <span class="badge ${LESSON_STATUS_CLASS[l.status]||'ok'}">${LESSON_STATUS_LABEL[l.status]||l.status}</span>
     </div>`;
   }).join('');
 }
+
+/* ---------- РЕНДЕР: РОЗКЛАД (КАЛЕНДАР) ---------- */
+let scheduleMonth = new Date(); scheduleMonth.setDate(1);
+function pad2(n){ return String(n).padStart(2,'0'); }
+function ymd(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function renderSchedule(){
+  const y = scheduleMonth.getFullYear(), m = scheduleMonth.getMonth();
+  const monthNames = ['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'];
+  document.getElementById('calTitle').textContent = monthNames[m] + ' ' + y;
+
+  const firstDay = new Date(y, m, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7; // Monday=0
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const todayStr = ymd(new Date());
+
+  const lessonsByDate = {};
+  db.lessons.forEach(l=>{ (lessonsByDate[l.date] = lessonsByDate[l.date]||[]).push(l); });
+
+  const dow = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+  let html = dow.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  for(let i=0;i<startOffset;i++) html += '<div class="cal-day empty"></div>';
+  for(let day=1; day<=daysInMonth; day++){
+    const dateStr = y+'-'+pad2(m+1)+'-'+pad2(day);
+    const dayLessons = lessonsByDate[dateStr] || [];
+    const dots = dayLessons.slice(0,4).map(l=>`<span class="dot ${LESSON_STATUS_CLASS[l.status]||'ok'}"></span>`).join('');
+    html += `<div class="cal-day ${dateStr===todayStr?'today':''}" onclick="openDaySchedule('${dateStr}')">
+      <div>${day}</div>
+      ${dots?`<div class="dots">${dots}</div>`:''}
+    </div>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+
+  const upcoming = db.lessons
+    .filter(l=>l.status==='scheduled' && l.date>=todayStr)
+    .sort((a,b)=> new Date(a.date+'T'+(a.time||'00:00'))-new Date(b.date+'T'+(b.time||'00:00')))
+    .slice(0,20);
+  const upcomingList = document.getElementById('upcomingList');
+  upcomingList.innerHTML = upcoming.length ? upcoming.map(l=>{
+    const s = getStudent(l.studentId);
+    const topic = getTopic(l.topicId);
+    const themeStr = [l.level, topic?topic.name:null].filter(Boolean).join(' · ');
+    return `<div class="list-item" onclick="openLessonForm(${l.id})">
+      <div>
+        <div class="name">${s?studentName(s):'Учень видалений'}</div>
+        <div class="meta">${l.date}${l.time?' о '+l.time:''}${themeStr?' · '+themeStr:''}</div>
+      </div>
+      <span class="badge scheduled">Заплановано</span>
+    </div>`;
+  }).join('') : '<div class="empty">Немає запланованих уроків.</div>';
+}
+function openDaySchedule(dateStr){
+  const dayLessons = db.lessons.filter(l=>l.date===dateStr).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  if(!dayLessons.length){
+    if(confirm('На ' + dateStr + ' немає уроків. Додати новий?')) openLessonForm(null, dateStr);
+    return;
+  }
+  const itemsHtml = dayLessons.map(l=>{
+    const s = getStudent(l.studentId);
+    const topic = getTopic(l.topicId);
+    const themeStr = [l.level, topic?topic.name:null].filter(Boolean).join(' · ');
+    return `<div class="list-item" onclick="closeModal();openLessonForm(${l.id})">
+      <div>
+        <div class="name">${s?studentName(s):'Учень видалений'}</div>
+        <div class="meta">${l.time?l.time+' · ':''}${themeStr||'—'}</div>
+      </div>
+      <span class="badge ${LESSON_STATUS_CLASS[l.status]||'ok'}">${LESSON_STATUS_LABEL[l.status]||l.status}</span>
+    </div>`;
+  }).join('');
+  modalBody.innerHTML = `
+    <h2>${dateStr}</h2>
+    <div class="list-card">${itemsHtml}</div>
+    <button class="btn" onclick="closeModal();openLessonForm(null,'${dateStr}')">+ Новий урок на цю дату</button>
+    <button class="btn secondary" onclick="closeModal()">Закрити</button>
+  `;
+  overlay.classList.add('open');
+}
+document.getElementById('calPrev').addEventListener('click', ()=>{
+  scheduleMonth.setMonth(scheduleMonth.getMonth()-1);
+  renderSchedule();
+});
+document.getElementById('calNext').addEventListener('click', ()=>{
+  scheduleMonth.setMonth(scheduleMonth.getMonth()+1);
+  renderSchedule();
+});
 
 /* ---------- РЕНДЕР: ТАРИФИ ---------- */
 function renderTariffs(){
@@ -484,6 +601,7 @@ function renderAll(){
   if(currentView==='students') renderStudents();
   if(currentView==='payments') renderPayments();
   if(currentView==='lessons') renderLessons();
+  if(currentView==='schedule') renderSchedule();
   if(currentView==='tariffs') renderTariffs();
 }
 
@@ -655,10 +773,11 @@ function studentLessonsSorted(studentId){
   return db.lessons.filter(l=>l.studentId===studentId)
     .sort((a,b)=> new Date(a.date)-new Date(b.date) || a.id-b.id);
 }
-function openLessonForm(id){
+function openLessonForm(id, presetDate){
   const l = id ? db.lessons.find(x=>x.id===id) : null;
   if(!db.students.length){ alert('Спочатку додайте хоча б одного учня'); return; }
   const level = l&&l.level ? l.level : LEVELS[0];
+  const defaultStatus = l ? l.status : (presetDate ? 'scheduled' : 'conducted');
   let prevLesson = null, nextLesson = null;
   if(l){
     const siblings = studentLessonsSorted(l.studentId);
@@ -669,7 +788,8 @@ function openLessonForm(id){
   modalBody.innerHTML = `
     <h2>${l?'Редагувати урок':'Новий урок'}</h2>
     <div class="field"><label>Учень *</label><select id="f_student">${studentOptions(l?l.studentId:null)}</select></div>
-    <div class="field"><label>Дата уроку</label><input type="date" id="f_date" value="${l?l.date:new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label>Дата уроку</label><input type="date" id="f_date" value="${l?l.date:(presetDate||new Date().toISOString().slice(0,10))}"></div>
+    <div class="field"><label>Час (для розкладу)</label><input type="time" id="f_time" value="${l&&l.time?l.time:''}"></div>
     <div class="field"><label>Рівень</label>
       <select id="f_level" onchange="onLevelChange()">
         ${LEVELS.map(lv=>`<option ${lv===level?'selected':''}>${lv}</option>`).join('')}
@@ -680,13 +800,14 @@ function openLessonForm(id){
     </div>
     <div class="field"><label>Статус</label>
       <select id="f_status">
-        <option value="conducted" ${l&&l.status==='conducted'?'selected':''}>Проведено</option>
-        <option value="cancelled_student" ${l&&l.status==='cancelled_student'?'selected':''}>Скасував учень</option>
-        <option value="cancelled_teacher" ${l&&l.status==='cancelled_teacher'?'selected':''}>Скасував викладач</option>
-        <option value="rescheduled" ${l&&l.status==='rescheduled'?'selected':''}>Перенесено</option>
+        <option value="scheduled" ${defaultStatus==='scheduled'?'selected':''}>Заплановано</option>
+        <option value="conducted" ${defaultStatus==='conducted'?'selected':''}>Проведено</option>
+        <option value="cancelled_student" ${defaultStatus==='cancelled_student'?'selected':''}>Скасував учень</option>
+        <option value="cancelled_teacher" ${defaultStatus==='cancelled_teacher'?'selected':''}>Скасував викладач</option>
+        <option value="rescheduled" ${defaultStatus==='rescheduled'?'selected':''}>Перенесено</option>
       </select>
     </div>
-    <div class="helper">Тільки уроки зі статусом «Проведено» списуються з балансу учня.</div>
+    <div class="helper">«Заплановано» — майбутній урок (з'явиться в Розкладі). Тільки «Проведено» списується з балансу учня.</div>
     <div class="btn-row">
       <button class="btn" onclick="saveLesson(${id||'null'})">Зберегти</button>
       ${l?'<button class="btn danger" onclick="deleteLesson('+id+')">Видалити</button>':''}
@@ -704,18 +825,19 @@ function saveLesson(id){
   const data = {
     studentId: Number(document.getElementById('f_student').value),
     date: document.getElementById('f_date').value,
+    time: document.getElementById('f_time').value || null,
     level: document.getElementById('f_level').value,
     topicId: (topicVal && topicVal !== '__new__') ? Number(topicVal) : null,
     status: document.getElementById('f_status').value,
   };
   if(id){ Object.assign(db.lessons.find(x=>x.id===id), data); }
   else { data.id = nextId(); db.lessons.push(data); }
-  saveDB(); closeModal(); showView('lessons');
+  saveDB(); closeModal(); showView(currentView==='schedule' ? 'schedule' : 'lessons');
 }
 function deleteLesson(id){
   if(!confirm('Видалити цей урок?')) return;
   db.lessons = db.lessons.filter(l=>l.id!==id);
-  saveDB(); closeModal(); showView('lessons');
+  saveDB(); closeModal(); showView(currentView==='schedule' ? 'schedule' : 'lessons');
 }
 
 function openTariffForm(id){
@@ -819,6 +941,7 @@ document.getElementById('fabAdd').addEventListener('click', ()=>{
   if(currentView==='students') openStudentForm();
   else if(currentView==='payments') openPaymentForm();
   else if(currentView==='lessons') openLessonForm();
+  else if(currentView==='schedule') openLessonForm(null, ymd(new Date()));
   else if(currentView==='tariffs') openTariffForm();
   else openStudentForm();
 });
