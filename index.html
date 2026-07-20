@@ -522,7 +522,7 @@ function renderSchedule(){
   for(let day=1; day<=daysInMonth; day++){
     const dateStr = y+'-'+pad2(m+1)+'-'+pad2(day);
     const dayLessons = lessonsByDate[dateStr] || [];
-    const dots = dayLessons.slice(0,4).map(l=>`<span class="dot ${LESSON_STATUS_CLASS[l.status]||'ok'}"></span>`).join('');
+    const dots = dayLessons.slice(0,4).map(l=>`<span class="dot ${l.status||'conducted'}"></span>`).join('');
     html += `<div class="cal-day ${dateStr===todayStr?'today':''}" onclick="openDaySchedule('${dateStr}')">
       <div>${day}</div>
       ${dots?`<div class="dots">${dots}</div>`:''}
