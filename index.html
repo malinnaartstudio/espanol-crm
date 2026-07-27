@@ -372,7 +372,7 @@ function shiftTimeStr(timeStr, minutes){
   const pad = n=>String(n).padStart(2,'0');
   return pad(base.getHours())+':'+pad(base.getMinutes());
 }
-function buildGcalEventBody(lesson){
+function buildGcalEventBody(lesson, includeConference){
   const student = getStudent(lesson.studentId);
   const topic = getTopic(lesson.topicId);
   const themeStr = [lesson.level, topic?topic.name:null].filter(Boolean).join(' · ');
@@ -381,7 +381,11 @@ function buildGcalEventBody(lesson){
   const body = {
     summary: summary,
     description: 'Статус: ' + statusLabel + (themeStr ? ('\n'+themeStr) : '') + '\n[CRM-ID:' + lesson.id + ']',
-    extendedProperties: { private: { crmId: String(lesson.id) } },
+    extendedProperties: { private: {
+      crmId: String(lesson.id),
+      studentEmail: (student && student.email) ? student.email : '',
+      studentFirstName: (student && student.firstName) ? student.firstName : ''
+    } },
   };
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid';
   if(lesson.time){
@@ -393,6 +397,14 @@ function buildGcalEventBody(lesson){
   }
   const colorMap = {scheduled:'9', conducted:'10', cancelled_student:'11', cancelled_teacher:'11', rescheduled:'5'};
   if(colorMap[lesson.status]) body.colorId = colorMap[lesson.status];
+  if(includeConference){
+    body.conferenceData = {
+      createRequest: {
+        requestId: 'crm-' + lesson.id + '-' + Date.now(),
+        conferenceSolutionKey: { type: 'hangoutsMeet' }
+      }
+    };
+  }
   return body;
 }
 async function findGcalEventIdByCrmId(token, lessonId){
@@ -409,15 +421,34 @@ async function syncLessonToCalendar(lesson){
     let token = await getGcalAccessToken(false);
     if(!token) token = await getGcalAccessToken(true);
     if(!token) return;
-    const body = buildGcalEventBody(lesson);
     const base = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(GCAL_CALENDAR_ID) + '/events';
     const existingId = await findGcalEventIdByCrmId(token, lesson.id);
-    const url = existingId ? (base + '/' + existingId) : base;
-    await fetch(url, {
+    /* Google Meet: генеруємо посилання лише якщо його ще немає на події та урок не скасований */
+    let needsConference = lesson.status !== 'cancelled_student' && lesson.status !== 'cancelled_teacher';
+    if(existingId && needsConference){
+      try{
+        const getRes = await fetch(base + '/' + existingId, { headers: { Authorization: 'Bearer ' + token } });
+        if(getRes.ok){
+          const existingEvent = await getRes.json();
+          if(existingEvent.hangoutLink) needsConference = false;
+        }
+      }catch(e){}
+    }
+    const body = buildGcalEventBody(lesson, needsConference);
+    let url = existingId ? (base + '/' + existingId) : base;
+    if(needsConference) url += '?conferenceDataVersion=1';
+    const res = await fetch(url, {
       method: existingId ? 'PATCH' : 'POST',
       headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+    if(res.ok){
+      const savedEvent = await res.json();
+      if(savedEvent.hangoutLink && lesson.meetLink !== savedEvent.hangoutLink){
+        lesson.meetLink = savedEvent.hangoutLink;
+        saveDB();
+      }
+    }
   }catch(e){ console.error('Помилка синхронізації уроку з Google Calendar:', e); }
 }
 async function removeLessonFromCalendar(lessonId){
@@ -468,6 +499,7 @@ function openInviteEmailForm(lessonId){
     + '📅 Дата: ' + dateFmt + '\n'
     + (timeFmt ? ('🕐 Час: ' + timeFmt + '\n') : '')
     + (themeStr ? ('📘 Тема: ' + themeStr + '\n') : '')
+    + (lesson.meetLink ? ('🔗 Посилання на Google Meet: ' + lesson.meetLink + '\n') : '')
     + '\nДо зустрічі!';
   modalBody.innerHTML = `
     <h2>Лист учню: ${studentName(student)}</h2>
@@ -1160,6 +1192,7 @@ function openLessonForm(id, presetDate){
       </select>
     </div>
     <div class="helper">«Заплановано» — майбутній урок (з'явиться в Розкладі). Тільки «Проведено» списується з балансу учня.</div>
+    ${l&&l.meetLink?`<div class="field"><label>Посилання Google Meet</label><a href="${l.meetLink}" target="_blank" rel="noopener" style="word-break:break-all;font-size:13px;">${l.meetLink}</a></div>`:''}
     <div class="btn-row">
       <button class="btn" onclick="saveLesson(${id||'null'})">Зберегти</button>
       ${l?'<button class="btn danger" onclick="deleteLesson('+id+')">Видалити</button>':''}
