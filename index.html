@@ -441,29 +441,48 @@ async function syncAllLessonsToCalendar(showAlert){
     gcalSyncAllInProgress = false;
   }
 }
-async function sendLessonInviteToStudent(lessonId){
+function formatDateUk(dateStr){
+  if(!dateStr) return '';
+  const parts = dateStr.split('-');
+  if(parts.length!==3) return dateStr;
+  return parts[2] + '.' + parts[1] + '.' + parts[0];
+}
+function openInviteEmailForm(lessonId){
   const lesson = db.lessons.find(x=>x.id===lessonId);
   if(!lesson) return;
   const student = getStudent(lesson.studentId);
   if(!student || !student.email){ alert("У цього учня не вказано email. Додайте email у картці учня (кнопка «Редагувати учня»)."); return; }
-  if(!gcalConnected){ alert('Спочатку підключіть Google Calendar у Налаштуваннях (⚙️ → Підключити Google Calendar).'); return; }
-  try{
-    let token = await getGcalAccessToken(false);
-    if(!token) token = await getGcalAccessToken(true);
-    if(!token){ alert('Не вдалося отримати доступ до Google Calendar. Спробуйте перепідключити його в Налаштуваннях.'); return; }
-    const body = buildGcalEventBody(lesson);
-    body.attendees = [{ email: student.email }];
-    const base = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(GCAL_CALENDAR_ID) + '/events';
-    const existingId = await findGcalEventIdByCrmId(token, lesson.id);
-    const url = (existingId ? (base + '/' + existingId) : base) + '?sendUpdates=all';
-    const res = await fetch(url, {
-      method: existingId ? 'PATCH' : 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    if(res.ok) alert('Запрошення на урок надіслано на ' + student.email);
-    else alert('Не вдалося надіслати запрошення. Спробуйте ще раз.');
-  }catch(e){ console.error('Помилка надсилання запрошення учню:', e); alert('Помилка надсилання запрошення.'); }
+  const topic = getTopic(lesson.topicId);
+  const themeStr = [lesson.level, topic?topic.name:null].filter(Boolean).join(' · ');
+  const dateFmt = formatDateUk(lesson.date);
+  const timeFmt = lesson.time || '';
+  const defaultSubject = 'Нагадування про урок іспанської — ' + dateFmt + (timeFmt?(' о '+timeFmt):'');
+  const defaultBody = 'Привіт, ' + student.firstName + '!\n\n'
+    + 'Нагадую про наш урок іспанської мови:\n'
+    + '📅 Дата: ' + dateFmt + '\n'
+    + (timeFmt ? ('🕐 Час: ' + timeFmt + '\n') : '')
+    + (themeStr ? ('📘 Тема: ' + themeStr + '\n') : '')
+    + '\nДо зустрічі!';
+  modalBody.innerHTML = `
+    <h2>Лист учню: ${studentName(student)}</h2>
+    <div class="field"><label>Кому</label><input id="f_mailTo" value="${student.email}" disabled></div>
+    <div class="field"><label>Тема листа</label><input id="f_mailSubject" value="${defaultSubject.replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>Текст листа</label><textarea id="f_mailBody" rows="9">${defaultBody}</textarea></div>
+    <div class="helper">Натискання «Відкрити лист» відкриє твою поштову програму з уже заповненими темою й текстом — там можеш ще раз перевірити чи змінити і надіслати сама, від свого імені.</div>
+    <div class="btn-row">
+      <button class="btn" onclick="sendCustomLessonEmail('${student.email.replace(/'/g,"\\'")}')">📧 Відкрити лист</button>
+    </div>
+    <button class="btn secondary" onclick="closeModal()">Скасувати</button>
+  `;
+  overlay.classList.add('open');
+}
+function sendCustomLessonEmail(toEmail){
+  const subject = document.getElementById('f_mailSubject').value;
+  const body = document.getElementById('f_mailBody').value;
+  const url = 'mailto:' + encodeURIComponent(toEmail)
+    + '?subject=' + encodeURIComponent(subject)
+    + '&body=' + encodeURIComponent(body);
+  window.location.href = url;
 }
 
 /* ---------- ЗБЕРІГАННЯ ДАНИХ (Firestore, з міграцією зі старого localStorage) ---------- */
@@ -1140,7 +1159,7 @@ function openLessonForm(id, presetDate){
       ${l?'<button class="btn danger" onclick="deleteLesson('+id+')">Видалити</button>':''}
     </div>
     <button class="btn secondary" onclick="closeModal()">Скасувати</button>
-    ${l?`<button class="btn secondary" style="margin-top:10px;" onclick="sendLessonInviteToStudent(${id})">📧 Надіслати запрошення учню на email</button>`:''}
+    ${l?`<button class="btn secondary" style="margin-top:10px;" onclick="openInviteEmailForm(${id})">📧 Надіслати запрошення учню на email</button>`:''}
     ${l?`<div class="btn-row" style="margin-top:10px;">
       <button class="btn secondary" ${prevLesson?`onclick="openLessonForm(${prevLesson.id})"`:'disabled style="opacity:.4;"'}>← Попередній урок</button>
       <button class="btn secondary" ${nextLesson?`onclick="openLessonForm(${nextLesson.id})"`:'disabled style="opacity:.4;"'}>Наступний урок →</button>
