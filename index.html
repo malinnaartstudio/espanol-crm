@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#e63946">
 <link rel="icon" href="logo-plain.png">
 <link rel="apple-touch-icon" href="logo-plain.png">
+<link rel="manifest" href="manifest.json">
 <title>Español CRM — Бухгалтерія курсу</title>
 <style>
   :root{
@@ -1362,6 +1363,16 @@ document.getElementById('fabAdd').addEventListener('click', ()=>{
 
 /* Перший рендер відбувається автоматично після входу — див. loadAndBootFromFirestore(),
    яку викликає auth.onAuthStateChanged() вище. */
+
+/* ---------- PWA: service worker (швидший запуск + офлайн-доступ до самого застосунку) ----------
+   Стратегія "network-first": завжди намагається взяти свіжу версію з інтернету,
+   і лише коли інтернету нема — показує останню збережену копію. Це навмисно,
+   щоб не повторити стару проблему з "залипанням" застарілої версії в кеші Safari. */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(e=>console.error('Помилка реєстрації service worker:', e));
+  });
+}
 </script>
 </body>
 </html>

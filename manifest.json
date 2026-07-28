@@ -1,0 +1,16 @@
+{
+  "name": "Español CRM — Бухгалтерія курсу",
+  "short_name": "Español CRM",
+  "description": "CRM та облік оплат для курсу іспанської мови",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f6f8",
+  "theme_color": "#e63946",
+  "lang": "uk",
+  "icons": [
+    { "src": "logo-plain.png", "sizes": "500x500", "type": "image/png", "purpose": "any" },
+    { "src": "logo-plain.png", "sizes": "500x500", "type": "image/png", "purpose": "maskable" }
+  ]
+}
