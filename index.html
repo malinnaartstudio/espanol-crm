@@ -378,15 +378,25 @@ function buildGcalEventBody(lesson, includeConference){
   const themeStr = [lesson.level, topic?topic.name:null].filter(Boolean).join(' · ');
   const statusLabel = (typeof LESSON_STATUS_LABEL!=='undefined' && LESSON_STATUS_LABEL[lesson.status]) || lesson.status;
   const summary = (student?studentName(student):'Учень #'+lesson.studentId) + (themeStr?' — '+themeStr:'') + ' ['+statusLabel+']';
+  const studentEmail = (student && student.email) ? student.email : '';
+  const studentFirstName = (student && student.firstName) ? student.firstName : '';
   const body = {
     summary: summary,
-    description: 'Статус: ' + statusLabel + (themeStr ? ('\n'+themeStr) : '') + '\n[CRM-ID:' + lesson.id + ']',
-    extendedProperties: { private: {
-      crmId: String(lesson.id),
-      studentEmail: (student && student.email) ? student.email : '',
-      studentFirstName: (student && student.firstName) ? student.firstName : ''
-    } },
+    description: 'Статус: ' + statusLabel + (themeStr ? ('\n'+themeStr) : '')
+      + (studentEmail ? ('\nEmail учня: ' + studentEmail) : '')
+      + '\n[CRM-ID:' + lesson.id + ']',
+    /* crmId лишається в private (потрібен для пошуку через privateExtendedProperty),
+       studentEmail/studentFirstName продубльовано в shared — це властивості, гарантовано
+       видимі будь-якому іншому додатку/інтеграції, що читає цю ж подію (на відміну від
+       private, які прив'язані до копії події конкретного клієнта). */
+    extendedProperties: {
+      private: { crmId: String(lesson.id), studentEmail: studentEmail, studentFirstName: studentFirstName },
+      shared: { studentEmail: studentEmail, studentFirstName: studentFirstName }
+    },
   };
+  if(studentEmail){
+    body.attendees = [{ email: studentEmail, displayName: student ? studentName(student) : undefined }];
+  }
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid';
   if(lesson.time){
     body.start = { dateTime: lesson.date + 'T' + lesson.time + ':00', timeZone: tz };
@@ -436,7 +446,10 @@ async function syncLessonToCalendar(lesson){
     }
     const body = buildGcalEventBody(lesson, needsConference);
     let url = existingId ? (base + '/' + existingId) : base;
-    if(needsConference) url += '?conferenceDataVersion=1';
+    const qs = [];
+    if(needsConference) qs.push('conferenceDataVersion=1');
+    qs.push('sendUpdates=none'); /* додаємо учня як attendee, але БЕЗ автоматичного запрошення від Google */
+    url += '?' + qs.join('&');
     const res = await fetch(url, {
       method: existingId ? 'PATCH' : 'POST',
       headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
