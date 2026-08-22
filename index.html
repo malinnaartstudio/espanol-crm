@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ProfesorAs CRM">
+<meta name="theme-color" content="#e63946">
+<link rel="icon" href="logo-plain.png">
+<link rel="apple-touch-icon" href="logo-plain.png">
+<link rel="manifest" href="manifest.json">
+<title>ProfesorAs CRM — Бухгалтерія курсу</title>
+<style>
+  :root{
+    --accent:#e63946;
+    --accent-dark:#c1121f;
+    --bg:#f5f6f8;
+    --card:#ffffff;
+    --text:#1d2129;
+    --muted:#6b7280;
+    --border:#e5e7eb;
+    --green:#16a34a;
+    --red:#dc2626;
+    --amber:#d97706;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #app{
+    max-width:520px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    background:var(--bg);
+    padding-bottom:calc(64px + env(safe-area-inset-bottom));
+  }
+  header.topbar{
+    position:sticky;top:0;z-index:20;
+    background:var(--accent);
+    color:#fff;
+    padding:calc(14px + env(safe-area-inset-top)) 18px 14px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  header.topbar h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px;}
+  header.topbar .sub{font-size:12px;opacity:.85;margin-top:2px;}
+  main{flex:1;padding:14px 14px 24px;}
+  section.view{display:none;}
+  section.view.active{display:block;animation:fade .18s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  .cards-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .stat-card{
+    background:var(--card);border-radius:var(--radius);padding:14px;
+    box-shadow:0 1px 2px rgba(0,0,0,.05);border:1px solid var(--border);
+  }
+  .stat-card .num{font-size:22px;font-weight:800;}
+  .stat-card .label{font-size:12px;color:var(--muted);margin-top:2px;}
+  .stat-card.debt .num{color:var(--red);}
+  .stat-card.income .num{color:var(--green);}
+
+  .section-title{font-size:14px;font-weight:700;margin:18px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+
+  .list-card{
+    background:var(--card);border-radius:var(--radius);border:1px solid var(--border);
+    margin-bottom:10px;overflow:hidden;
+  }
+  .list-item{
+    padding:12px 14px;display:flex;justify-content:space-between;align-items:center;
+    gap:10px;border-bottom:1px solid var(--border);cursor:pointer;
+  }
+  .list-item:last-child{border-bottom:none;}
+  .list-item .name{font-weight:600;font-size:15px;}
+  .list-item .meta{font-size:12px;color:var(--muted);margin-top:2px;}
+  .badge{
+    font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;
+  }
+  .badge.active{background:#dcfce7;color:var(--green);}
+  .badge.pause{background:#fef3c7;color:var(--amber);}
+  .badge.done{background:#e5e7eb;color:var(--muted);}
+  .badge.debt{background:#fee2e2;color:var(--red);}
+  .badge.ok{background:#dcfce7;color:var(--green);}
+
+  .fab{
+    position:fixed;right:calc(50% - 260px + 18px);bottom:calc(78px + env(safe-area-inset-bottom));
+    width:52px;height:52px;border-radius:50%;background:var(--accent);color:#fff;
+    border:none;font-size:26px;box-shadow:0 4px 12px rgba(230,57,70,.4);
+    display:flex;align-items:center;justify-content:center;z-index:15;
+  }
+  @media (max-width:559px){.fab{right:18px;}}
+
+  nav.tabbar{
+    position:fixed;bottom:0;left:0;right:0;
+    background:#fff;border-top:1px solid var(--border);
+    display:flex;justify-content:space-around;
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    max-width:520px;margin:0 auto;z-index:20;
+  }
+  nav.tabbar button{
+    background:none;border:none;display:flex;flex-direction:column;align-items:center;
+    gap:2px;color:var(--muted);font-size:10px;padding:4px 6px;flex:1;
+  }
+  nav.tabbar button .ic{font-size:20px;line-height:1;}
+  nav.tabbar button.active{color:var(--accent);font-weight:700;}
+
+  input,select,textarea{
+    width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:10px;
+    font-size:15px;background:#fff;color:var(--text);margin-bottom:10px;font-family:inherit;
+  }
+  label{font-size:12px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px;}
+  .field{margin-bottom:10px;}
+  .btn{
+    display:block;width:100%;padding:13px;border:none;border-radius:10px;
+    background:var(--accent);color:#fff;font-size:15px;font-weight:700;margin-top:6px;
+  }
+  .btn.secondary{background:#f0f1f3;color:var(--text);}
+  .btn.danger{background:#fee2e2;color:var(--red);}
+  .btn-row{display:flex;gap:8px;}
+  .btn-row .btn{flex:1;}
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:30;
+    display:none;align-items:flex-end;justify-content:center;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:#fff;width:100%;max-width:520px;border-radius:18px 18px 0 0;
+    max-height:88vh;overflow-y:auto;padding:18px 18px calc(18px + env(safe-area-inset-bottom));
+  }
+  .modal h2{margin:0 0 14px;font-size:17px;}
+  .modal .close{position:absolute;top:14px;right:16px;font-size:22px;color:var(--muted);background:none;border:none;}
+
+  .empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:14px;}
+  .search-box{margin-bottom:12px;}
+  .segmented{display:flex;background:#eceef1;border-radius:10px;padding:3px;margin-bottom:14px;}
+  .segmented button{flex:1;border:none;background:none;padding:8px 4px;border-radius:8px;font-size:12px;font-weight:600;color:var(--muted);}
+  .segmented button.active{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.1);}
+  .helper{font-size:11px;color:var(--muted);margin:-4px 0 10px;}
+  .balance{font-weight:700;}
+  .balance.neg{color:var(--red);}
+  .balance.pos{color:var(--green);}
+
+  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .cal-title{font-weight:700;font-size:15px;}
+  .cal-nav{background:var(--card);border:1px solid var(--border);border-radius:8px;width:34px;height:34px;font-size:18px;color:var(--text);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px;}
+  .cal-dow{font-size:10px;color:var(--muted);text-align:center;font-weight:700;padding-bottom:2px;}
+  .cal-day{
+    position:relative;aspect-ratio:1;border-radius:10px;background:var(--card);
+    border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:12px;color:var(--text);
+  }
+  .cal-day.empty{background:transparent;border-color:transparent;}
+  .cal-day.today{border-color:var(--accent);border-width:2px;}
+  .cal-day .dots{display:flex;gap:2px;margin-top:2px;}
+  .cal-day .dot{width:5px;height:5px;border-radius:50%;}
+  .dot.scheduled{background:#2563eb;}
+  .dot.conducted{background:var(--green);}
+  .dot.cancelled_student, .dot.cancelled_teacher{background:var(--red);}
+  .dot.rescheduled{background:var(--amber);}
+  .badge.scheduled{background:#dbeafe;color:#2563eb;}
+
+  #authScreen{
+    position:fixed;inset:0;background:var(--bg);z-index:50;
+    display:none;align-items:center;justify-content:center;padding:24px;
+  }
+  #authScreen .box{width:100%;max-width:340px;}
+  #authScreen h1{text-align:center;color:var(--accent);margin:0 0 4px;font-size:22px;}
+  #authScreen .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:24px;}
+  #authScreen .err{color:var(--red);font-size:12px;margin:-4px 0 10px;min-height:14px;}
+</style>
+</head>
+<body>
+
+<div id="authScreen">
+  <div class="box">
+    <img src="logo-text.png" alt="Malinna Art Studio" style="width:120px;display:block;margin:0 auto 14px;">
+    <h1>ProfesorAs CRM</h1>
+    <div class="sub">Вхід до вашого кабінету</div>
+    <form id="loginForm">
+      <div class="field"><label>Email</label><input type="email" id="loginEmail" required autocomplete="username"></div>
+      <div class="field"><label>Пароль</label><input type="password" id="loginPassword" required autocomplete="current-password"></div>
+      <div class="err" id="loginError"></div>
+      <button type="submit" class="btn" id="loginSubmitBtn">Увійти</button>
+    </form>
+    <button class="btn secondary" id="toggleSignupBtn" type="button" style="margin-top:8px;">Ще немає акаунта? Створити</button>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
+
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img src="logo-plain.png" alt="" style="width:34px;height:34px;border-radius:50%;background:#fff;padding:2px;flex-shrink:0;">
+      <div>
+        <h1 id="pageTitle">Дашборд</h1>
+        <div class="sub">ProfesorAs CRM</div>
+      </div>
+    </div>
+    <button id="settingsBtn" aria-label="Налаштування / резервна копія" style="background:none;border:none;color:#fff;font-size:22px;padding:4px;line-height:1;">⚙️</button>
+  </header>
+
+  <main>
+
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <div class="cards-row">
+        <div class="stat-card"><div class="num" id="statStudents">0</div><div class="label">Учнів усього</div></div>
+        <div class="stat-card"><div class="num" id="statActive">0</div><div class="label">Активних</div></div>
+        <div class="stat-card income"><div class="num" id="statIncome">0 €</div><div class="label">Дохід усього</div></div>
+        <div class="stat-card debt"><div class="num" id="statDebt">0 €</div><div class="label">Загальний борг</div></div>
+      </div>
+
+      <div class="section-title">Учні з боргом</div>
+      <div class="list-card" id="debtorsList"><div class="empty">Боржників немає 🎉</div></div>
+
+      <div class="section-title">Джерела учнів (платформа)</div>
+      <div class="list-card" id="platformStats"><div class="empty">Немає даних</div></div>
+
+      <div class="section-title">Канали зв'язку</div>
+      <div class="list-card" id="channelStats"><div class="empty">Немає даних</div></div>
+
+      <button class="btn secondary" style="margin-top:8px;" onclick="openSettingsForm()">💾 Резервна копія</button>
+    </section>
+
+    <!-- STUDENTS -->
+    <section class="view" id="view-students">
+      <input type="text" class="search-box" id="studentSearch" placeholder="Пошук учня за іменем або телефоном">
+      <div class="segmented" id="studentFilter">
+        <button data-f="all" class="active">Всі</button>
+        <button data-f="active">Активні</button>
+        <button data-f="pause">Пауза</button>
+        <button data-f="done">Завершили</button>
+      </div>
+      <div class="list-card" id="studentsList"><div class="empty">Учнів ще немає. Натисніть +, щоб додати.</div></div>
+    </section>
+
+    <!-- PAYMENTS -->
+    <section class="view" id="view-payments">
+      <div class="list-card" id="paymentsList"><div class="empty">Оплат ще немає.</div></div>
+    </section>
+
+    <!-- LESSONS -->
+    <section class="view" id="view-lessons">
+      <input type="text" class="search-box" id="lessonStudentSearch" placeholder="Фільтр за іменем учня">
+      <div class="list-card" id="lessonsList"><div class="empty">Уроків ще немає.</div></div>
+    </section>
+
+    <!-- SCHEDULE (CALENDAR) -->
+    <section class="view" id="view-schedule">
+      <div class="cal-header">
+        <button class="cal-nav" id="calPrev">‹</button>
+        <div class="cal-title" id="calTitle">—</div>
+        <button class="cal-nav" id="calNext">›</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="section-title">Найближчі уроки</div>
+      <div class="list-card" id="upcomingList"><div class="empty">Немає запланованих уроків.</div></div>
+    </section>
+
+    <!-- TARIFFS -->
+    <section class="view" id="view-tariffs">
+      <button class="btn secondary" style="margin-bottom:10px;" onclick="openTopicsManagerForm()">📚 Теми уроків (масове додавання)</button>
+      <div class="list-card" id="tariffsList"><div class="empty">Тарифів ще немає.</div></div>
+    </section>
+
+  </main>
+
+  <button class="fab" id="fabAdd">+</button>
+
+  <nav class="tabbar">
+    <button data-view="dashboard" class="active"><span class="ic">🏠</span>Дашборд</button>
+    <button data-view="students"><span class="ic">👥</span>Учні</button>
+    <button data-view="payments"><span class="ic">💳</span>Оплати</button>
+    <button data-view="lessons"><span class="ic">📅</span>Уроки</button>
+    <button data-view="schedule"><span class="ic">🗓️</span>Розклад</button>
+    <button data-view="tariffs"><span class="ic">🏷️</span>Тарифи</button>
+  </nav>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalBody"></div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore-compat.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+/* ---------- FIREBASE (Firestore + Auth) ---------- */
+/* Це публічний веб-конфіг Firebase (не пароль і не секрет) — безпека даних
+   забезпечується через Firebase Authentication + Firestore Security Rules,
+   що дозволяють читати/писати лише документ з uid саме того користувача,
+   який увійшов у систему. */
+const firebaseConfig = {
+  apiKey: "AIzaSyCMTo8SZ1tOj6rYTALjmr4RIM6PNOZFsSA",
+  authDomain: "espanol-crm-data.firebaseapp.com",
+  projectId: "espanol-crm-data",
+  storageBucket: "espanol-crm-data.firebasestorage.app",
+  messagingSenderId: "953802706633",
+  appId: "1:953802706633:web:e662715baf480e4232c718"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const firestore = firebase.firestore();
+let currentUser = null;
+
+/* ---------- GOOGLE CALENDAR (миттєва синхронізація уроків, клієнтська) ---------- */
+const GOOGLE_CLIENT_ID = '953802706633-79vavehjg3bljpvv1eutnehjjmf2jf4c.apps.googleusercontent.com';
+const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+const GCAL_CALENDAR_ID = '61091992b3c34f16a29521b32e628d2538250bef596fef8dd7087f5422b8953a@group.calendar.google.com';
+let gcalTokenClient = null;
+let gcalAccessToken = null;
+let gcalConnected = localStorage.getItem('gcalConnected_v1') === '1';
+let gcalPendingResolve = null;
+let gcalSyncAllInProgress = false;
+
+function ensureGcalTokenClient(){
+  if(gcalTokenClient || !window.google || !google.accounts || !google.accounts.oauth2) return;
+  gcalTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: GOOGLE_CALENDAR_SCOPE,
+    callback: (resp) => {
+      if(resp && resp.access_token){
+        gcalAccessToken = resp.access_token;
+        gcalConnected = true;
+        localStorage.setItem('gcalConnected_v1', '1');
+      }
+      if(gcalPendingResolve){ const r = gcalPendingResolve; gcalPendingResolve = null; r(resp && resp.access_token ? resp.access_token : null); }
+    },
+    error_callback: () => {
+      if(gcalPendingResolve){ const r = gcalPendingResolve; gcalPendingResolve = null; r(null); }
+    }
+  });
+}
+function getGcalAccessToken(interactive){
+  return new Promise((resolve)=>{
+    ensureGcalTokenClient();
+    if(!gcalTokenClient){ resolve(null); return; }
+    if(gcalAccessToken){ resolve(gcalAccessToken); return; }
+    if(!interactive && !gcalConnected){ resolve(null); return; }
+    gcalPendingResolve = resolve;
+    try{ gcalTokenClient.requestAccessToken({prompt: interactive ? 'consent' : ''}); }
+    catch(e){ gcalPendingResolve = null; resolve(null); }
+  });
+}
+function connectGoogleCalendar(){
+  ensureGcalTokenClient();
+  if(!gcalTokenClient){ alert('Google ще завантажується. Спробуйте ще раз за кілька секунд.'); return; }
+  gcalPendingResolve = (token)=>{
+    if(token) alert('Google Calendar підключено! Тепер уроки будуть автоматично з’являтися у календарі "Розклад уроків".');
+    else alert('Не вдалося підключити Google Calendar. Спробуйте ще раз.');
+    closeModal(); openSettingsForm();
+  };
+  try{ gcalTokenClient.requestAccessToken({prompt:'consent'}); }
+  catch(e){ gcalPendingResolve = null; }
+}
+function disconnectGoogleCalendar(){
+  if(!confirm('Відключити автоматичну синхронізацію з Google Calendar?')) return;
+  gcalAccessToken = null; gcalConnected = false;
+  localStorage.removeItem('gcalConnected_v1');
+  closeModal(); openSettingsForm();
+}
+function shiftTimeStr(timeStr, minutes){
+  const parts = (timeStr||'00:00').split(':').map(Number);
+  const base = new Date(2000,0,1,parts[0]||0,parts[1]||0);
+  base.setMinutes(base.getMinutes()+minutes);
+  const pad = n=>String(n).padStart(2,'0');
+  return pad(base.getHours())+':'+pad(base.getMinutes());
+}
+function buildGcalEventBody(lesson, includeConference){
+  const student = getStudent(lesson.studentId);
+  const topic = getTopic(lesson.topicId);
+  const themeStr = [lesson.level, topic?topic.name:null].filter(Boolean).join(' · ');
+  const statusLabel = (typeof LESSON_STATUS_LABEL!=='undefined' && LESSON_STATUS_LABEL[lesson.status]) || lesson.status;
+  const summary = (student?studentName(student):'Учень #'+lesson.studentId) + (themeStr?' — '+themeStr:'') + ' ['+statusLabel+']';
+  const studentEmail = (student && student.email) ? student.email : '';
+  const studentFirstName = (student && student.firstName) ? student.firstName : '';
+  const body = {
+    summary: summary,
+    description: 'Статус: ' + statusLabel + (themeStr ? ('\n'+themeStr) : '')
+      + (studentEmail ? ('\nEmail учня: ' + studentEmail) : '')
+      + '\n[CRM-ID:' + lesson.id + ']',
+    /* crmId лишається в private (потрібен для пошуку через privateExtendedProperty),
+       studentEmail/studentFirstName продубльовано в shared — це властивості, гарантовано
+       видимі будь-якому іншому додатку/інтеграції, що читає цю ж подію (на відміну від
+       private, які прив'язані до копії події конкретного клієнта). */
+    extendedProperties: {
+      private: { crmId: String(lesson.id), studentEmail: studentEmail, studentFirstName: studentFirstName },
+      shared: { studentEmail: studentEmail, studentFirstName: studentFirstName }
+    },
+  };
+  if(studentEmail){
+    body.attendees = [{ email: studentEmail, displayName: student ? studentName(student) : undefined }];
+  }
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid';
+  if(lesson.time){
+    body.start = { dateTime: lesson.date + 'T' + lesson.time + ':00', timeZone: tz };
+    body.end = { dateTime: lesson.date + 'T' + shiftTimeStr(lesson.time, 60) + ':00', timeZone: tz };
+  } else {
+    body.start = { date: lesson.date };
+    body.end = { date: lesson.date };
+  }
+  const colorMap = {scheduled:'9', conducted:'10', cancelled_student:'11', cancelled_teacher:'11', rescheduled:'5'};
+  if(colorMap[lesson.status]) body.colorId = colorMap[lesson.status];
+  if(includeConference){
+    body.conferenceData = {
+      createRequest: {
+        requestId: 'crm-' + lesson.id + '-' + Date.now(),
+        conferenceSolutionKey: { type: 'hangoutsMeet' }
+      }
+    };
+  }
+  return body;
+}
+async function findGcalEventIdByCrmId(token, lessonId){
+  const url = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(GCAL_CALENDAR_ID)
+    + '/events?privateExtendedProperty=' + encodeURIComponent('crmId=' + lessonId);
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if(!res.ok) return null;
+  const data = await res.json();
+  return (data.items && data.items[0]) ? data.items[0].id : null;
+}
+async function syncLessonToCalendar(lesson){
+  if(!lesson || !gcalConnected) return;
+  try{
+    let token = await getGcalAccessToken(false);
+    if(!token) token = await getGcalAccessToken(true);
+    if(!token) return;
+    const base = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(GCAL_CALENDAR_ID) + '/events';
+    const existingId = await findGcalEventIdByCrmId(token, lesson.id);
+    /* Google Meet: генеруємо посилання лише якщо його ще немає на події та урок не скасований */
+    let needsConference = lesson.status !== 'cancelled_student' && lesson.status !== 'cancelled_teacher';
+    if(existingId && needsConference){
+      try{
+        const getRes = await fetch(base + '/' + existingId, { headers: { Authorization: 'Bearer ' + token } });
+        if(getRes.ok){
+          const existingEvent = await getRes.json();
+          if(existingEvent.hangoutLink) needsConference = false;
+        }
+      }catch(e){}
+    }
+    const body = buildGcalEventBody(lesson, needsConference);
+    let url = existingId ? (base + '/' + existingId) : base;
+    const qs = [];
+    if(needsConference) qs.push('conferenceDataVersion=1');
+    qs.push('sendUpdates=none'); /* додаємо учня як attendee, але БЕЗ автоматичного запрошення від Google */
+    url += '?' + qs.join('&');
+    const res = await fetch(url, {
+      method: existingId ? 'PATCH' : 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if(res.ok){
+      const savedEvent = await res.json();
+      if(savedEvent.hangoutLink && lesson.meetLink !== savedEvent.hangoutLink){
+        lesson.meetLink = savedEvent.hangoutLink;
+        saveDB();
+      }
+    }
+  }catch(e){ console.error('Помилка синхронізації уроку з Google Calendar:', e); }
+}
+async function removeLessonFromCalendar(lessonId){
+  if(!gcalConnected) return;
+  try{
+    let token = await getGcalAccessToken(false);
+    if(!token) token = await getGcalAccessToken(true);
+    if(!token) return;
+    const existingId = await findGcalEventIdByCrmId(token, lessonId);
+    if(existingId){
+      const base = 'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(GCAL_CALENDAR_ID) + '/events';
+      await fetch(base + '/' + existingId, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+    }
+  }catch(e){ console.error('Помилка видалення уроку з Google Calendar:', e); }
+}
+async function syncAllLessonsToCalendar(showAlert){
+  if(!gcalConnected) return;
+  if(gcalSyncAllInProgress){ alert('Синхронізація вже виконується, зачекайте — не натискайте кнопку повторно.'); return; }
+  gcalSyncAllInProgress = true;
+  try{
+    const list = db.lessons.slice();
+    for(const lesson of list){
+      await syncLessonToCalendar(lesson);
+    }
+    if(showAlert !== false) alert('Синхронізовано уроків: ' + list.length);
+  } finally {
+    gcalSyncAllInProgress = false;
+  }
+}
+function formatDateUk(dateStr){
+  if(!dateStr) return '';
+  const parts = dateStr.split('-');
+  if(parts.length!==3) return dateStr;
+  return parts[2] + '.' + parts[1] + '.' + parts[0];
+}
+function openInviteEmailForm(lessonId){
+  const lesson = db.lessons.find(x=>x.id===lessonId);
+  if(!lesson) return;
+  const student = getStudent(lesson.studentId);
+  if(!student || !student.email){ alert("У цього учня не вказано email. Додайте email у картці учня (кнопка «Редагувати учня»)."); return; }
+  const topic = getTopic(lesson.topicId);
+  const themeStr = [lesson.level, topic?topic.name:null].filter(Boolean).join(' · ');
+  const dateFmt = formatDateUk(lesson.date);
+  const timeFmt = lesson.time || '';
+  const defaultSubject = 'Нагадування про урок іспанської — ' + dateFmt + (timeFmt?(' о '+timeFmt):'');
+  const defaultBody = 'Привіт, ' + student.firstName + '!\n\n'
+    + 'Нагадую про наш урок іспанської мови:\n'
+    + '📅 Дата: ' + dateFmt + '\n'
+    + (timeFmt ? ('🕐 Час: ' + timeFmt + '\n') : '')
+    + (themeStr ? ('📘 Тема: ' + themeStr + '\n') : '')
+    + (lesson.meetLink ? ('🔗 Посилання на Google Meet: ' + lesson.meetLink + '\n') : '')
+    + '\nДо зустрічі!';
+  modalBody.innerHTML = `
+    <h2>Лист учню: ${studentName(student)}</h2>
+    <div class="field"><label>Кому</label><input id="f_mailTo" value="${student.email}" disabled></div>
+    <div class="field"><label>Тема листа</label><input id="f_mailSubject" value="${defaultSubject.replace(/"/g,'&quot;')}"></div>
+    <div class="field"><label>Текст листа</label><textarea id="f_mailBody" rows="9">${defaultBody}</textarea></div>
+    <div class="helper">Натискання «Відкрити лист» відкриє твою поштову програму з уже заповненими темою й текстом — там можеш ще раз перевірити чи змінити і надіслати сама, від свого імені.</div>
+    <div class="btn-row">
+      <button class="btn" onclick="sendCustomLessonEmail('${student.email.replace(/'/g,"\\'")}')">📧 Відкрити лист</button>
+    </div>
+    <button class="btn secondary" onclick="closeModal()">Скасувати</button>
+  `;
+  overlay.classList.add('open');
+}
+function sendCustomLessonEmail(toEmail){
+  const subject = document.getElementById('f_mailSubject').value;
+  const body = document.getElementById('f_mailBody').value;
+  const url = 'mailto:' + encodeURIComponent(toEmail)
+    + '?subject=' + encodeURIComponent(subject)
+    + '&body=' + encodeURIComponent(body);
+  window.location.href = url;
+}
+
+/* ---------- ЗБЕРІГАННЯ ДАНИХ (Firestore, з міграцією зі старого localStorage) ---------- */
+const DB_KEY = 'espanolCrmData_v1';
+function emptyDB(){ return { students:[], tariffs:[], payments:[], lessons:[], lessonTopics:[], seq:1 }; }
+function loadLegacyLocalDB(){
+  const raw = localStorage.getItem(DB_KEY);
+  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
+  return null;
+}
+let db = emptyDB();
+function saveDB(){
+  if(!currentUser) return;
+  firestore.collection('users').doc(currentUser.uid).collection('data').doc('main')
+    .set(db)
+    .catch(err=>console.error('Помилка збереження в Firestore:', err));
+}
+function nextId(){ return db.seq++; }
+
+function seedTariffsIfEmpty(){
+  /* сідові тарифи для першого запуску (актуальні тарифи курсу, EUR) */
+  if(db.tariffs.length === 0){
+    db.tariffs.push(
+      {id:nextId(), name:'Автоперевірка (самостійно, 30 уроків)', pricePerLesson:5, lessonsInPackage:30, packagePrice:150},
+      {id:nextId(), name:'З куратором (30 уроків)', pricePerLesson:10, lessonsInPackage:30, packagePrice:300},
+      {id:nextId(), name:'Індивідуальні уроки з викладачем (30 год)', pricePerLesson:15, lessonsInPackage:30, packagePrice:450}
+    );
+    saveDB();
+  }
+}
+
+/* рівні курсу (CEFR) */
+const LEVELS = ['A1','A2','B1','B2','C1','C2'];
+/* Дні тижня для автогенерації розкладу учня. value відповідає Date.getDay() (0=Нд...6=Сб). */
+const WEEKDAY_OPTIONS = [
+  {label:'Пн', val:1}, {label:'Вт', val:2}, {label:'Ср', val:3},
+  {label:'Чт', val:4}, {label:'Пт', val:5}, {label:'Сб', val:6}, {label:'Нд', val:0},
+];
+
+function seedLessonTopicsIfEmpty(){
+  /* сідові теми уроків для першого запуску (програма курсу A1/A2) */
+  if(db.lessonTopics.length !== 0) return;
+  const A1 = [
+    'Lección 1: Alfabeto y pronunciación',
+    'Lección 2: Saludos y presentaciones. Verbo ser',
+    'Lección 3: Los números',
+    'Lección 4: Verbo estar, hay. Las fechas',
+    'Lección 5: Preposiciones y adverbios de lugar',
+    'Lección 6: Presente de los verbos regulares. Interrogativos',
+    'Lección 7: Presente de los verbos irregulares',
+    'Lección 8: Verbos tener, saber y conocer',
+    'Lección 9: Posesivos',
+    'Lección 10: Muy y mucho. Hace...',
+    'Lección 11: Verbos reflexivos',
+    'Lección 12: Los verbos de objeto indirecto. Gustar',
+    'Lección 13: Demostrativos. Coincidencia y divergencia',
+    'Lección 14: Adverbios. Construcciones negativas con nada y nunca',
+    'Lección 15: Verbos + infinitivos',
+    'Lección 16: Comida. Elementos. Restaurantes',
+    'Lección 17: Expresión de obligación',
+    'Lección 18: Tu casa. Tipos de vivienda',
+    'Lección 19: Expresar una acción futura. Ir + a + infinitivo',
+    'Lección 20: Cuerpo humano. Salud',
+    'Lección 21: La comparación. Expresar énfasis',
+    'Lección 22: Emergencias y seguridad',
+    'Lección 23: El pretérito perfecto',
+    'Lección 24: Verbos irregulares en el pretérito perfecto',
+    'Lección 25: Transporte',
+    'Lección 26: Preposiciones a, de, en, por, con y sin',
+    'Lección 27: Educación',
+    'Lección 28: Trabajo',
+    'Lección 29: Pronombres de objeto directo y indirecto',
+    'Lección 30: Diferencias culturales, reglas no escritas'
+  ];
+  const A2 = [
+    'Lección 1: Usos de ser y estar',
+    'Lección 2: Expresar sentimientos y emociones',
+    'Lección 3: Describir a personas física y emocionalmente',
+    'Lección 4: Construcciones de obligación',
+    'Lección 5: El gerundio',
+    'Lección 6: Conversaciones y mensajes telefónicos',
+    'Lección 7: Pretérito indefinido: verbos regulares',
+    'Lección 8: Pretérito indefinido: verbos irregulares',
+    'Lección 9: Hablar de experiencias pasadas',
+    'Lección 10: Más verbos irregulares en indefinido',
+    'Lección 11: Los indefinidos (algo, alguien, nada, todo, ninguno…)',
+    'Lección 12: Historia de España',
+    'Lección 13: Pretérito imperfecto',
+    'Lección 14: Imperativo afirmativo',
+    'Lección 15: Imperativo con pronombres',
+    'Lección 16: Conjunciones básicas',
+    'Lección 17: Expresiones temporales',
+    'Lección 18: El futuro simple',
+    'Lección 19: Expresar duda o inseguridad',
+    'Lección 20: Vocabulario y usos de las TIC. Herramientas digitales cotidianas',
+    'Lección 21: Mi cuerpo y mi rutina diaria',
+    'Lección 22: Ir al médico. En la farmacia',
+    'Lección 23: Vivir bien. Consejos para una vida sana',
+    'Lección 24: Mi trabajo y mi experiencia profesional',
+    'Lección 25: Busco empleo. Ofertas y anuncios laborales',
+    'Lección 26: En una entrevista. Habilidades, experiencia, disponibilidad',
+    'Lección 27: El transporte en España',
+    'Lección 28: Planificar un viaje',
+    'Lección 29: En el aeropuerto y en el hotel. Reclamos y peticiones',
+    'Lección 30: Cierre del nivel A2'
+  ];
+  A1.forEach(name => db.lessonTopics.push({id:nextId(), level:'A1', name}));
+  A2.forEach(name => db.lessonTopics.push({id:nextId(), level:'A2', name}));
+  saveDB();
+}
+
+/* ---------- АВТЕНТИФІКАЦІЯ + ЗАВАНТАЖЕННЯ ДАНИХ ПІСЛЯ ВХОДУ ---------- */
+async function loadAndBootFromFirestore(user){
+  const docRef = firestore.collection('users').doc(user.uid).collection('data').doc('main');
+  const snap = await docRef.get();
+  if(snap.exists){
+    db = snap.data();
+  } else {
+    /* документа в Firestore ще немає — одноразова міграція старих даних із localStorage цього браузера */
+    const legacy = loadLegacyLocalDB();
+    db = legacy || emptyDB();
+    await docRef.set(db);
+  }
+  if(!Array.isArray(db.lessonTopics)) db.lessonTopics = [];
+  if(typeof db.seq !== 'number'){
+    const ids = [].concat(db.students||[], db.tariffs||[], db.payments||[], db.lessons||[], db.lessonTopics||[]).map(x=>x.id||0);
+    db.seq = (ids.length ? Math.max(...ids) : 0) + 1;
+  }
+  seedTariffsIfEmpty();
+  seedLessonTopicsIfEmpty();
+  renderAll();
+}
+
+let signupMode = false;
+document.getElementById('toggleSignupBtn').addEventListener('click', ()=>{
+  signupMode = !signupMode;
+  document.getElementById('loginSubmitBtn').textContent = signupMode ? 'Створити акаунт' : 'Увійти';
+  document.getElementById('toggleSignupBtn').textContent = signupMode ? 'Вже є акаунт? Увійти' : 'Ще немає акаунта? Створити';
+  document.getElementById('loginError').textContent = '';
+});
+document.getElementById('loginForm').addEventListener('submit', function(e){
+  e.preventDefault();
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  const action = signupMode
+    ? auth.createUserWithEmailAndPassword(email, password)
+    : auth.signInWithEmailAndPassword(email, password);
+  action.catch(err=>{ errEl.textContent = 'Помилка: ' + (err.message || err.code || err); });
+});
+function logout(){
+  if(!confirm('Вийти з акаунта?')) return;
+  auth.signOut();
+}
+auth.onAuthStateChanged(function(user){
+  const authScreen = document.getElementById('authScreen');
+  const appEl = document.getElementById('app');
+  if(user){
+    currentUser = user;
+    authScreen.style.display = 'none';
+    appEl.style.display = 'flex';
+    loadAndBootFromFirestore(user).catch(err=>{
+      console.error('Помилка завантаження даних з Firestore:', err);
+      alert('Не вдалося завантажити дані. Перевірте інтернет-з’єднання і оновіть сторінку.');
+    });
+  } else {
+    currentUser = null;
+    appEl.style.display = 'none';
+    authScreen.style.display = 'flex';
+  }
+});
+
+/* ---------- НАВІГАЦІЯ ---------- */
+const titles = {dashboard:'Дашборд', students:'Учні', payments:'Оплати', lessons:'Уроки', schedule:'Розклад', tariffs:'Тарифи'};
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('nav.tabbar button').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+  document.getElementById('pageTitle').textContent = titles[name];
+  currentView = name;
+  renderAll();
+}
+let currentView = 'dashboard';
+document.querySelectorAll('nav.tabbar button').forEach(b=>{
+  b.addEventListener('click', ()=>showView(b.dataset.view));
+});
+
+/* ---------- ДОПОМІЖНІ ФУНКЦІЇ ---------- */
+function fmtMoney(n){ return (Math.round(n*100)/100).toLocaleString('uk-UA') + ' €'; }
+function studentName(s){ return s.firstName + ' ' + s.lastName; }
+function getStudent(id){ return db.students.find(s=>s.id===id); }
+function getTariff(id){ return db.tariffs.find(t=>t.id===id); }
+function getTopic(id){ return db.lessonTopics.find(t=>t.id===id); }
+
+/* баланс учня в уроках: оплачено - проведено */
+function studentBalance(studentId){
+  const paid = db.payments.filter(p=>p.studentId===studentId).reduce((sum,p)=>sum+Number(p.lessonsPaid||0),0);
+  const done = db.lessons.filter(l=>l.studentId===studentId && l.status==='conducted').length;
+  return paid - done;
+}
+/* Множина id уроків учня, які покриваються вже оплаченими уроками (у хронологічному порядку).
+   Враховуються лише уроки, що "рахуються" в баланс (Проведено / Заплановано) —
+   перші N з них (де N = скільки уроків оплачено) вважаються оплаченими, решта — ні. */
+function studentPaidLessonIds(studentId){
+  const paidCount = db.payments.filter(p=>p.studentId===studentId).reduce((sum,p)=>sum+Number(p.lessonsPaid||0),0);
+  const billable = db.lessons.filter(l=>l.studentId===studentId && (l.status==='conducted' || l.status==='scheduled'))
+    .sort((a,b)=> new Date(a.date+'T'+(a.time||'00:00')) - new Date(b.date+'T'+(b.time||'00:00')) || a.id-b.id);
+  const paidIds = new Set();
+  billable.slice(0, paidCount).forEach(l=>paidIds.add(l.id));
+  return paidIds;
+}
+/* сума боргу в грн, за ціною поточного тарифу учня */
+function studentDebtAmount(student){
+  const bal = studentBalance(student.id);
+  if(bal>=0) return 0;
+  const t = getTariff(student.tariffId);
+  const pricePerLesson = t ? (t.pricePerLesson || (t.packagePrice/t.lessonsInPackage)) : 0;
+  return Math.abs(bal) * pricePerLesson;
+}
+function totalIncome(){ return db.payments.reduce((s,p)=>s+Number(p.amount||0),0); }
+function totalDebt(){ return db.students.reduce((s,st)=>s+studentDebtAmount(st),0); }
+
+/* ---------- РЕНДЕР: ДАШБОРД ---------- */
+function renderDashboard(){
+  document.getElementById('statStudents').textContent = db.students.length;
+  document.getElementById('statActive').textContent = db.students.filter(s=>s.status==='active').length;
+  document.getElementById('statIncome').textContent = fmtMoney(totalIncome());
+  document.getElementById('statDebt').textContent = fmtMoney(totalDebt());
+
+  const debtors = db.students.filter(s=>studentDebtAmount(s)>0).sort((a,b)=>studentDebtAmount(b)-studentDebtAmount(a));
+  const debtorsList = document.getElementById('debtorsList');
+  debtorsList.innerHTML = debtors.length ? debtors.map(s=>`
+    <div class="list-item" onclick="openStudentForm(${s.id})">
+      <div><div class="name">${studentName(s)}</div><div class="meta">${s.phone||''}</div></div>
+      <span class="badge debt">${fmtMoney(studentDebtAmount(s))}</span>
+    </div>`).join('') : '<div class="empty">Боржників немає 🎉</div>';
+
+  const platforms = {};
+  db.students.forEach(s=>{ const p = s.platform||'Не вказано'; platforms[p]=(platforms[p]||0)+1; });
+  const platformStats = document.getElementById('platformStats');
+  const pKeys = Object.keys(platforms);
+  platformStats.innerHTML = pKeys.length ? pKeys.map(p=>`
+    <div class="list-item" onclick="openPlatformStudents('${p.replace(/'/g,"\\'")}')"><div class="name">${p}</div><span class="badge ok">${platforms[p]}</span></div>
+  `).join('') : '<div class="empty">Немає даних</div>';
+
+  const channels = {};
+  db.students.forEach(s=>{ const c = s.channel||'Не вказано'; channels[c]=(channels[c]||0)+1; });
+  const channelStats = document.getElementById('channelStats');
+  const cKeys = Object.keys(channels);
+  channelStats.innerHTML = cKeys.length ? cKeys.map(c=>`
+    <div class="list-item" onclick="openChannelStudents('${c.replace(/'/g,"\\'")}')"><div class="name">${c}</div><span class="badge ok">${channels[c]}</span></div>
+  `).join('') : '<div class="empty">Немає даних</div>';
+}
+
+/* ---------- ПЛАТФОРМА → СПИСОК УЧНІВ ---------- */
+function openPlatformStudents(platform){
+  const list = db.students.filter(s=>(s.platform||'Не вказано')===platform)
+    .sort((a,b)=>studentName(a).localeCompare(studentName(b),'uk'));
+  const itemsHtml = list.map(s=>`
+    <div class="list-item" onclick="closeModal();openStudentForm(${s.id})">
+      <div><div class="name">${studentName(s)}</div><div class="meta">${s.phone||'—'}</div></div>
+    </div>`).join('');
+  modalBody.innerHTML = `
+    <h2>${platform} (${list.length})</h2>
+    <div class="list-card">${itemsHtml || '<div class="empty">Немає учнів</div>'}</div>
+    <button class="btn secondary" onclick="closeModal()">Закрити</button>
+  `;
+  overlay.classList.add('open');
+}
+
+/* ---------- КАНАЛ → СПИСОК УЧНІВ ---------- */
+function openChannelStudents(channel){
+  const list = db.students.filter(s=>(s.channel||'Не вказано')===channel)
+    .sort((a,b)=>studentName(a).localeCompare(studentName(b),'uk'));
+  const itemsHtml = list.map(s=>`
+    <div class="list-item" onclick="closeModal();openStudentForm(${s.id})">
+      <div><div class="name">${studentName(s)}</div><div class="meta">${s.phone||'—'}</div></div>
+    </div>`).join('');
+  modalBody.innerHTML = `
+    <h2>${channel} (${list.length})</h2>
+    <div class="list-card">${itemsHtml || '<div class="empty">Немає учнів</div>'}</div>
+    <button class="btn secondary" onclick="closeModal()">Закрити</button>
+  `;
+  overlay.classList.add('open');
+}
+
+/* ---------- КНОПКА ЗВ'ЯЗКУ (Telegram / WhatsApp / Viber / Дзвінок) ---------- */
+function contactLink(s){
+  if(!s.phone) return null;
+  const digits = s.phone.replace(/[^\d]/g,'');
+  if(!digits) return null;
+  switch(s.channel){
+    case 'WhatsApp': return {url:'https://wa.me/'+digits, label:'💬 Написати у WhatsApp'};
+    case 'Telegram': return {url:'https://t.me/+'+digits, label:'✈️ Написати у Telegram'};
+    case 'Viber': return {url:'viber://chat?number='+digits, label:'📞 Написати у Viber'};
+    case 'Дзвінок': return {url:'tel:+'+digits, label:'📱 Подзвонити'};
+    default: return {url:'tel:+'+digits, label:'📱 Подзвонити'};
+  }
+}
+
+/* ---------- РЕНДЕР: УЧНІ ---------- */
+let studentFilterState = 'all';
+document.getElementById('studentFilter').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  studentFilterState = btn.dataset.f;
+  document.querySelectorAll('#studentFilter button').forEach(b=>b.classList.toggle('active', b===btn));
+  renderStudents();
+});
+document.getElementById('studentSearch').addEventListener('input', renderStudents);
+
+function renderStudents(){
+  const q = document.getElementById('studentSearch').value.trim().toLowerCase();
+  let list = db.students.filter(s=>{
+    if(studentFilterState!=='all' && s.status!==studentFilterState) return false;
+    if(q && !(studentName(s).toLowerCase().includes(q) || (s.phone||'').includes(q))) return false;
+    return true;
+  }).sort((a,b)=>studentName(a).localeCompare(studentName(b),'uk'));
+
+  const el = document.getElementById('studentsList');
+  if(!list.length){ el.innerHTML = '<div class="empty">Нічого не знайдено.</div>'; return; }
+  const statusLabel = {active:'Активний', pause:'Пауза', done:'Завершив'};
+  el.innerHTML = list.map(s=>{
+    const bal = studentBalance(s.id);
+    const debt = studentDebtAmount(s);
+    return `<div class="list-item" onclick="openStudentForm(${s.id})">
+      <div>
+        <div class="name">${studentName(s)}</div>
+        <div class="meta">${s.channel||'—'} · ${s.phone||'—'}</div>
+        <div class="meta">Баланс: <span class="balance ${bal<0?'neg':'pos'}">${bal} ур.</span>${debt>0?' · Борг: '+fmtMoney(debt):''}</div>
+      </div>
+      <span class="badge ${s.status}">${statusLabel[s.status]||s.status}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- РЕНДЕР: ОПЛАТИ ---------- */
+function renderPayments(){
+  const el = document.getElementById('paymentsList');
+  const list = [...db.payments].sort((a,b)=> new Date(b.date)-new Date(a.date));
+  if(!list.length){ el.innerHTML = '<div class="empty">Оплат ще немає.</div>'; return; }
+  el.innerHTML = list.map(p=>{
+    const s = getStudent(p.studentId);
+    const t = getTariff(p.tariffId);
+    return `<div class="list-item" onclick="openPaymentForm(${p.id})">
+      <div>
+        <div class="name">${s?studentName(s):'Учень видалений'}</div>
+        <div class="meta">${p.date} · ${t?t.name:'—'} · ${p.method||'—'}</div>
+        <div class="meta">Оплачено уроків: ${p.lessonsPaid}</div>
+      </div>
+      <span class="badge ok">${fmtMoney(p.amount)}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- РЕНДЕР: УРОКИ ---------- */
+const LESSON_STATUS_LABEL = {scheduled:'Заплановано', conducted:'Проведено', cancelled_student:'Скасував учень', cancelled_teacher:'Скасував викладач', rescheduled:'Перенесено'};
+const LESSON_STATUS_CLASS = {scheduled:'scheduled', conducted:'ok', cancelled_student:'debt', cancelled_teacher:'pause', rescheduled:'pause'};
+document.getElementById('lessonStudentSearch').addEventListener('input', renderLessons);
+function renderLessons(){
+  const el = document.getElementById('lessonsList');
+  const q = document.getElementById('lessonStudentSearch').value.trim().toLowerCase();
+  let list = [...db.lessons].sort((a,b)=> new Date(b.date+'T'+(b.time||'00:00'))-new Date(a.date+'T'+(a.time||'00:00')));
+  if(q){
+    list = list.filter(l=>{
+      const s = getStudent(l.studentId);
+      return s && studentName(s).toLowerCase().includes(q);
+    });
+  }
+  if(!list.length){ el.innerHTML = '<div class="empty">'+(q?'Нічого не знайдено.':'Уроків ще немає.')+'</div>'; return; }
+  const paidIdsCache = {};
+  el.innerHTML = list.map(l=>{
+    const s = getStudent(l.studentId);
+    const topic = getTopic(l.topicId);
+    const themeStr = [l.level, topic?topic.name:null].filter(Boolean).join(' · ');
+    let payBadge = '';
+    if(l.status==='conducted' || l.status==='scheduled'){
+      if(!paidIdsCache[l.studentId]) paidIdsCache[l.studentId] = studentPaidLessonIds(l.studentId);
+      const isPaid = paidIdsCache[l.studentId].has(l.id);
+      payBadge = `<span class="badge ${isPaid?'ok':'debt'}" style="margin-left:6px;">${isPaid?'Оплачено':'Не оплачено'}</span>`;
+    }
+    return `<div class="list-item" onclick="openLessonForm(${l.id})">
+      <div>
+        <div class="name">${s?studentName(s):'Учень видалений'}</div>
+        <div class="meta">${l.date}${l.time?' '+l.time:''}${themeStr?' · '+themeStr:''}</div>
+      </div>
+      <div style="text-align:right;">
+        <span class="badge ${LESSON_STATUS_CLASS[l.status]||'ok'}">${LESSON_STATUS_LABEL[l.status]||l.status}</span>
+        ${payBadge}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- РЕНДЕР: РОЗКЛАД (КАЛЕНДАР) ---------- */
+let scheduleMonth = new Date(); scheduleMonth.setDate(1);
+function pad2(n){ return String(n).padStart(2,'0'); }
+function ymd(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function renderSchedule(){
+  const y = scheduleMonth.getFullYear(), m = scheduleMonth.getMonth();
+  const monthNames = ['Січень','Лютий','Березень','Квітень','Травень','Червень','Липень','Серпень','Вересень','Жовтень','Листопад','Грудень'];
+  document.getElementById('calTitle').textContent = monthNames[m] + ' ' + y;
+
+  const firstDay = new Date(y, m, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7; // Monday=0
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const todayStr = ymd(new Date());
+
+  const lessonsByDate = {};
+  db.lessons.forEach(l=>{ (lessonsByDate[l.date] = lessonsByDate[l.date]||[]).push(l); });
+
+  const dow = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+  let html = dow.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  for(let i=0;i<startOffset;i++) html += '<div class="cal-day empty"></div>';
+  for(let day=1; day<=daysInMonth; day++){
+    const dateStr = y+'-'+pad2(m+1)+'-'+pad2(day);
+    const dayLessons = lessonsByDate[dateStr] || [];
+    const dots = dayLessons.slice(0,4).map(l=>`<span class="dot ${l.status||'conducted'}"></span>`).join('');
+    html += `<div class="cal-day ${dateStr===todayStr?'today':''}" onclick="openDaySchedule('${dateStr}')">
+      <div>${day}</div>
+      ${dots?`<div class="dots">${dots}</div>`:''}
+    </div>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+
+  const upcoming = db.lessons
+    .filter(l=>l.status==='scheduled' && l.date>=todayStr)
+    .sort((a,b)=> new Date(a.date+'T'+(a.time||'00:00'))-new Date(b.date+'T'+(b.time||'00:00')))
+    .slice(0,20);
+  const upcomingList = document.getElementById('upcomingList');
+  upcomingList.innerHTML = upcoming.length ? upcoming.map(l=>{
+    const s = getStudent(l.studentId);
+    const topic = getTopic(l.topicId);
+    const themeStr = [l.level, topic?topic.name:null].filter(Boolean).join(' · ');
+    return `<div class="list-item" onclick="openLessonForm(${l.id})">
+      <div>
+        <div class="name">${s?studentName(s):'Учень видалений'}</div>
+        <div class="meta">${l.date}${l.time?' о '+l.time:''}${themeStr?' · '+themeStr:''}</div>
+      </div>
+      <span class="badge scheduled">Заплановано</span>
+    </div>`;
+  }).join('') : '<div class="empty">Немає запланованих уроків.</div>';
+}
+function openDaySchedule(dateStr){
+  const dayLessons = db.lessons.filter(l=>l.date===dateStr).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+  if(!dayLessons.length){
+    if(confirm('На ' + dateStr + ' немає уроків. Додати новий?')) openLessonForm(null, dateStr);
+    return;
+  }
+  const itemsHtml = dayLessons.map(l=>{
+    const s = getStudent(l.studentId);
+    const topic = getTopic(l.topicId);
+    const themeStr = [l.level, topic?topic.name:null].filter(Boolean).join(' · ');
+    return `<div class="list-item" onclick="closeModal();openLessonForm(${l.id})">
+      <div>
+        <div class="name">${s?studentName(s):'Учень видалений'}</div>
+        <div class="meta">${l.time?l.time+' · ':''}${themeStr||'—'}</div>
+      </div>
+      <span class="badge ${LESSON_STATUS_CLASS[l.status]||'ok'}">${LESSON_STATUS_LABEL[l.status]||l.status}</span>
+    </div>`;
+  }).join('');
+  modalBody.innerHTML = `
+    <h2>${dateStr}</h2>
+    <div class="list-card">${itemsHtml}</div>
+    <button class="btn" onclick="closeModal();openLessonForm(null,'${dateStr}')">+ Новий урок на цю дату</button>
+    <button class="btn secondary" onclick="closeModal()">Закрити</button>
+  `;
+  overlay.classList.add('open');
+}
+document.getElementById('calPrev').addEventListener('click', ()=>{
+  scheduleMonth.setMonth(scheduleMonth.getMonth()-1);
+  renderSchedule();
+});
+document.getElementById('calNext').addEventListener('click', ()=>{
+  scheduleMonth.setMonth(scheduleMonth.getMonth()+1);
+  renderSchedule();
+});
+
+/* ---------- РЕНДЕР: ТАРИФИ ---------- */
+function renderTariffs(){
+  const el = document.getElementById('tariffsList');
+  if(!db.tariffs.length){ el.innerHTML = '<div class="empty">Тарифів ще немає.</div>'; return; }
+  el.innerHTML = db.tariffs.map(t=>`
+    <div class="list-item" onclick="openTariffForm(${t.id})">
+      <div>
+        <div class="name">${t.name}</div>
+        <div class="meta">${t.lessonsInPackage} ур. за ${fmtMoney(t.packagePrice)} (${fmtMoney(t.pricePerLesson)}/ур.)</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderAll(){
+  renderDashboard();
+  if(currentView==='students') renderStudents();
+  if(currentView==='payments') renderPayments();
+  if(currentView==='lessons') renderLessons();
+  if(currentView==='schedule') renderSchedule();
+  if(currentView==='tariffs') renderTariffs();
+}
+
+/* ---------- МОДАЛЬНІ ФОРМИ ---------- */
+const overlay = document.getElementById('modalOverlay');
+const modalBody = document.getElementById('modalBody');
+function closeModal(){ overlay.classList.remove('open'); modalBody.innerHTML=''; }
+overlay.addEventListener('click', e=>{ if(e.target===overlay) closeModal(); });
+
+function tariffOptions(selectedId){
+  return db.tariffs.map(t=>`<option value="${t.id}" ${t.id===selectedId?'selected':''}>${t.name}</option>`).join('');
+}
+function studentOptions(selectedId){
+  return db.students.map(s=>`<option value="${s.id}" ${s.id===selectedId?'selected':''}>${studentName(s)}</option>`).join('');
+}
+
+function openStudentForm(id){
+  const s = id ? getStudent(id) : null;
+  const link = s ? contactLink(s) : null;
+  modalBody.innerHTML = `
+    <h2>${s?'Редагувати учня':'Новий учень'}</h2>
+    ${link?`<a class="btn" style="text-decoration:none;text-align:center;display:block;" href="${link.url}" target="_blank" rel="noopener">${link.label}</a>`:''}
+    <div class="field"><label>Ім'я *</label><input id="f_firstName" value="${s?s.firstName:''}"></div>
+    <div class="field"><label>Прізвище</label><input id="f_lastName" value="${s?s.lastName:''}"></div>
+    <div class="field"><label>Телефон</label><input id="f_phone" value="${s?s.phone||'':''}" placeholder="+380..."></div>
+    <div class="field"><label>Email</label><input id="f_email" value="${s?s.email||'':''}"></div>
+    <div class="field"><label>Канал зв'язку</label>
+      <select id="f_channel">
+        <option ${s&&s.channel==='Telegram'?'selected':''}>Telegram</option>
+        <option ${s&&s.channel==='WhatsApp'?'selected':''}>WhatsApp</option>
+        <option ${s&&s.channel==='Viber'?'selected':''}>Viber</option>
+        <option ${s&&s.channel==='Дзвінок'?'selected':''}>Дзвінок</option>
+      </select>
+    </div>
+    <div class="field"><label>Платформа (звідки прийшов)</label>
+      <select id="f_platform">
+        <option ${s&&s.platform==='Instagram'?'selected':''}>Instagram</option>
+        <option ${s&&s.platform==='Facebook'?'selected':''}>Facebook</option>
+        <option ${s&&s.platform==='TikTok'?'selected':''}>TikTok</option>
+        <option ${s&&s.platform==='Сайт'?'selected':''}>Сайт</option>
+        <option ${s&&s.platform==='Реферал (від учня)'?'selected':''}>Реферал (від учня)</option>
+        <option ${s&&s.platform==='Telegram-канал'?'selected':''}>Telegram-канал</option>
+        <option ${s&&s.platform==='Інше'?'selected':''}>Інше</option>
+      </select>
+    </div>
+    <div class="field"><label>Тариф</label><select id="f_tariff">${tariffOptions(s?s.tariffId:null)}</select></div>
+    <div class="field"><label>Дата початку</label><input type="date" id="f_startDate" value="${s?s.startDate||'':new Date().toISOString().slice(0,10)}"></div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:600;">
+        <input type="checkbox" id="f_genSchedule" onchange="toggleGenSchedule()" ${s?'':'checked'}>
+        Автоматично створити уроки за розкладом
+      </label>
+    </div>
+    <div id="scheduleFieldsBlock" style="${s?'display:none;':''}">
+      <div class="field"><label>Дні занять і час</label>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${WEEKDAY_OPTIONS.map(w=>`
+            <div style="display:flex;align-items:center;gap:8px;">
+              <label style="display:flex;align-items:center;gap:6px;font-weight:400;width:48px;">
+                <input type="checkbox" class="f_weekday" value="${w.val}" onchange="onWeekdayToggle(${w.val})"> ${w.label}
+              </label>
+              <input type="time" id="f_weekday_time_${w.val}" value="17:00" disabled style="flex:1;">
+            </div>`).join('')}
+        </div>
+      </div>
+      <div class="field"><label>Рівень</label>
+        <select id="f_schedLevel" onchange="onSchedLevelChange()">
+          ${LEVELS.map(lv=>`<option ${lv===LEVELS[0]?'selected':''}>${lv}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Стартова тема</label>
+        <select id="f_schedTopic" onchange="onSchedTopicChange()">${topicOptionsForLevel(LEVELS[0], null)}</select>
+      </div>
+      <div class="field"><label>К-сть уроків</label><input type="number" id="f_schedCount" value="30" min="1"></div>
+      <div class="helper">Уроки створяться зі статусом «Заплановано», починаючи з дати початку, у вибрані дні тижня, з обраної теми і далі по порядку тем рівня.</div>
+    </div>
+    <div class="field"><label>Статус</label>
+      <select id="f_status">
+        <option value="active" ${s&&s.status==='active'?'selected':''}>Активний</option>
+        <option value="pause" ${s&&s.status==='pause'?'selected':''}>Пауза</option>
+        <option value="done" ${s&&s.status==='done'?'selected':''}>Завершив</option>
+      </select>
+    </div>
+    <div class="field"><label>Коментар</label><textarea id="f_notes" rows="2">${s?s.notes||'':''}</textarea></div>
+    <div class="btn-row">
+      <button class="btn" onclick="saveStudent(${id||'null'})">Зберегти</button>
+      ${s?'<button class="btn danger" onclick="deleteStudent('+id+')">Видалити</button>':''}
+    </div>
+    <button class="btn secondary" onclick="closeModal()">Скасувати</button>
+  `;
+  overlay.classList.add('open');
+}
+function toggleGenSchedule(){
+  const checked = document.getElementById('f_genSchedule').checked;
+  document.getElementById('scheduleFieldsBlock').style.display = checked ? '' : 'none';
+}
+function onWeekdayToggle(dayVal){
+  const cb = document.querySelector('.f_weekday[value="'+dayVal+'"]');
+  document.getElementById('f_weekday_time_'+dayVal).disabled = !cb.checked;
+}
+function onSchedLevelChange(){
+  const level = document.getElementById('f_schedLevel').value;
+  document.getElementById('f_schedTopic').innerHTML = topicOptionsForLevel(level, null);
+}
+function onSchedTopicChange(){
+  const sel = document.getElementById('f_schedTopic');
+  if(sel.value === '__new__'){
+    const level = document.getElementById('f_schedLevel').value;
+    const name = prompt('Назва нової теми (рівень ' + level + '):');
+    if(name && name.trim()){
+      const t = {id:nextId(), level:level, name:name.trim()};
+      db.lessonTopics.push(t);
+      saveDB();
+      sel.innerHTML = topicOptionsForLevel(level, t.id);
+    } else {
+      sel.value = '';
+    }
+  }
+}
+// Генерує серію уроків для учня: у вибрані дні тижня (кожен зі своїм часом),
+// починаючи з дати старту, з темами по порядку з обраного рівня (починаючи зі стартової теми).
+// dayTimes: Map або об'єкт { day: 'HH:MM' } для обраних днів тижня (day за Date.getDay()).
+function generateScheduleLessons(studentId, startDateStr, dayTimes, level, startTopicId, count){
+  const topics = db.lessonTopics.filter(t=>t.level===level);
+  let topicIdx = startTopicId ? topics.findIndex(t=>t.id===startTopicId) : 0;
+  if(topicIdx===-1) topicIdx = 0;
+  const created = [];
+  const d = new Date(startDateStr + 'T00:00:00');
+  let safety = 0;
+  while(created.length < count && safety < (count + 10) * 14){
+    safety++;
+    const dayVal = d.getDay();
+    if(Object.prototype.hasOwnProperty.call(dayTimes, dayVal)){
+      const lesson = {
+        id: nextId(),
+        studentId,
+        date: d.toISOString().slice(0,10),
+        time: dayTimes[dayVal] || null,
+        level,
+        topicId: topics[topicIdx] ? topics[topicIdx].id : null,
+        status: 'scheduled',
+      };
+      db.lessons.push(lesson);
+      created.push(lesson);
+      topicIdx++;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return created;
+}
+function saveStudent(id){
+  const data = {
+    firstName: document.getElementById('f_firstName').value.trim(),
+    lastName: document.getElementById('f_lastName').value.trim(),
+    phone: document.getElementById('f_phone').value.trim(),
+    email: document.getElementById('f_email').value.trim(),
+    channel: document.getElementById('f_channel').value,
+    platform: document.getElementById('f_platform').value,
+    tariffId: Number(document.getElementById('f_tariff').value),
+    startDate: document.getElementById('f_startDate').value,
+    status: document.getElementById('f_status').value,
+    notes: document.getElementById('f_notes').value.trim(),
+  };
+  if(!data.firstName){ alert("Вкажіть ім'я учня"); return; }
+  let studentId;
+  if(id){ Object.assign(getStudent(id), data); studentId = id; }
+  else { data.id = nextId(); db.students.push(data); studentId = data.id; }
+
+  let generatedLessons = [];
+  const genEl = document.getElementById('f_genSchedule');
+  if(genEl && genEl.checked){
+    const checkedDays = Array.from(document.querySelectorAll('.f_weekday:checked'));
+    if(!checkedDays.length){
+      alert('Учня збережено, але для генерації розкладу оберіть хоча б один день занять.');
+    } else {
+      const dayTimes = {};
+      checkedDays.forEach(el=>{
+        const dayVal = Number(el.value);
+        dayTimes[dayVal] = document.getElementById('f_weekday_time_'+dayVal).value || null;
+      });
+      const level = document.getElementById('f_schedLevel').value;
+      const topicVal = document.getElementById('f_schedTopic').value;
+      const startTopicId = (topicVal && topicVal !== '__new__') ? Number(topicVal) : null;
+      const count = Math.max(1, Number(document.getElementById('f_schedCount').value || 30));
+      const startDate = data.startDate || new Date().toISOString().slice(0,10);
+      generatedLessons = generateScheduleLessons(studentId, startDate, dayTimes, level, startTopicId, count);
+    }
+  }
+
+  saveDB(); closeModal(); showView('students');
+  generatedLessons.forEach(l=>syncLessonToCalendar(l));
+}
+function deleteStudent(id){
+  if(!confirm('Видалити учня та всю історію? Цю дію не можна скасувати.')) return;
+  db.students = db.students.filter(s=>s.id!==id);
+  db.payments = db.payments.filter(p=>p.studentId!==id);
+  db.lessons = db.lessons.filter(l=>l.studentId!==id);
+  saveDB(); closeModal(); showView('students');
+}
+
+function openPaymentForm(id){
+  const p = id ? db.payments.find(x=>x.id===id) : null;
+  if(!db.students.length){ alert('Спочатку додайте хоча б одного учня'); return; }
+  modalBody.innerHTML = `
+    <h2>${p?'Редагувати оплату':'Нова оплата'}</h2>
+    <div class="field"><label>Учень *</label><select id="f_student">${studentOptions(p?p.studentId:null)}</select></div>
+    <div class="field"><label>Дата оплати</label><input type="date" id="f_date" value="${p?p.date:new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label>Тариф</label><select id="f_tariff" onchange="autofillPayment()">${tariffOptions(p?p.tariffId:null)}</select></div>
+    <div class="field"><label>Сума (€)</label><input type="number" id="f_amount" value="${p?p.amount:''}"></div>
+    <div class="field"><label>К-сть оплачених уроків</label><input type="number" id="f_lessons" value="${p?p.lessonsPaid:''}"></div>
+    <div class="field"><label>Платформа/спосіб оплати</label>
+      <select id="f_method">
+        <option ${p&&p.method==='Sabadell'?'selected':''}>Sabadell</option>
+        <option ${p&&p.method==='PayPal'?'selected':''}>PayPal</option>
+        <option ${p&&p.method==='Revolut'?'selected':''}>Revolut</option>
+        <option ${p&&p.method==='Готівка'?'selected':''}>Готівка</option>
+        <option ${p&&p.method==='Інше'?'selected':''}>Інше</option>
+      </select>
+    </div>
+    <div class="field"><label>Коментар</label><textarea id="f_note" rows="2">${p?p.note||'':''}</textarea></div>
+    <div class="btn-row">
+      <button class="btn" onclick="savePayment(${id||'null'})">Зберегти</button>
+      ${p?'<button class="btn danger" onclick="deletePayment('+id+')">Видалити</button>':''}
+    </div>
+    <button class="btn secondary" onclick="closeModal()">Скасувати</button>
+  `;
+  overlay.classList.add('open');
+  if(!p) autofillPayment();
+}
+function autofillPayment(){
+  const t = getTariff(Number(document.getElementById('f_tariff').value));
+  if(!t) return;
+  if(!document.getElementById('f_amount').value) document.getElementById('f_amount').value = t.packagePrice;
+  if(!document.getElementById('f_lessons').value) document.getElementById('f_lessons').value = t.lessonsInPackage;
+}
+function savePayment(id){
+  const data = {
+    studentId: Number(document.getElementById('f_student').value),
+    date: document.getElementById('f_date').value,
+    tariffId: Number(document.getElementById('f_tariff').value),
+    amount: Number(document.getElementById('f_amount').value||0),
+    lessonsPaid: Number(document.getElementById('f_lessons').value||0),
+    method: document.getElementById('f_method').value,
+    note: document.getElementById('f_note').value.trim(),
+  };
+  if(id){ Object.assign(db.payments.find(x=>x.id===id), data); }
+  else { data.id = nextId(); db.payments.push(data); }
+  saveDB(); closeModal(); showView('payments');
+}
+function deletePayment(id){
+  if(!confirm('Видалити цю оплату?')) return;
+  db.payments = db.payments.filter(p=>p.id!==id);
+  saveDB(); closeModal(); showView('payments');
+}
+
+function topicOptionsForLevel(level, selectedId){
+  const items = db.lessonTopics.filter(t=>t.level===level);
+  let opts = items.map(t=>`<option value="${t.id}" ${t.id===selectedId?'selected':''}>${t.name}</option>`).join('');
+  opts += `<option value="">— не вказано —</option><option value="__new__">+ Додати нову тему</option>`;
+  return opts;
+}
+/* ---------- УПРАВЛІННЯ ТЕМАМИ УРОКІВ (масове додавання списком) ---------- */
+function openTopicsManagerForm(level){
+  level = level || LEVELS[0];
+  const topics = db.lessonTopics.filter(t=>t.level===level);
+  modalBody.innerHTML = `
+    <h2>Теми уроків</h2>
+    <div class="field"><label>Рівень</label>
+      <select id="tm_level" onchange="openTopicsManagerForm(this.value)">
+        ${LEVELS.map(lv=>`<option ${lv===level?'selected':''}>${lv}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Поточні теми рівня ${level} (${topics.length})</label>
+      <div class="list-card" style="max-height:220px;overflow-y:auto;">
+        ${topics.length ? topics.map(t=>`
+          <div class="list-item" style="padding:8px 12px;cursor:default;">
+            <div class="name" style="font-size:14px;font-weight:400;">${t.name}</div>
+            <button class="btn danger" style="padding:4px 10px;font-size:12px;width:auto;" onclick="deleteTopicFromManager(${t.id},'${level}')">Видалити</button>
+          </div>`).join('') : '<div class="empty">Тем ще немає.</div>'}
+      </div>
+    </div>
+    <div class="field"><label>Додати нові теми (кожна — з нового рядка, у порядку курсу)</label>
+      <textarea id="tm_bulk" rows="8" placeholder="Lección 1: ...&#10;Lección 2: ...&#10;Lección 3: ..."></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="bulkAddTopics('${level}')">Додати теми</button>
+    </div>
+    <button class="btn secondary" onclick="closeModal();showView('tariffs')">Закрити</button>
+  `;
+  overlay.classList.add('open');
+}
+function bulkAddTopics(level){
+  const raw = document.getElementById('tm_bulk').value;
+  const lines = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!lines.length){ alert('Вставте хоча б одну назву теми (кожна — з нового рядка).'); return; }
+  lines.forEach(name=>{
+    db.lessonTopics.push({id:nextId(), level:level, name:name});
+  });
+  saveDB();
+  openTopicsManagerForm(level);
+}
+function deleteTopicFromManager(id, level){
+  if(!confirm('Видалити цю тему? Уроки, які вже на неї посилаються, залишаться без прив’язаної теми (назва просто не покажеться).')) return;
+  db.lessonTopics = db.lessonTopics.filter(t=>t.id!==id);
+  saveDB();
+  openTopicsManagerForm(level);
+}
+function onLevelChange(){
+  const level = document.getElementById('f_level').value;
+  document.getElementById('f_topic').innerHTML = topicOptionsForLevel(level, null);
+}
+function onTopicChange(){
+  const sel = document.getElementById('f_topic');
+  if(sel.value === '__new__'){
+    const level = document.getElementById('f_level').value;
+    const name = prompt('Назва нової теми (рівень ' + level + '):');
+    if(name && name.trim()){
+      const t = {id:nextId(), level:level, name:name.trim()};
+      db.lessonTopics.push(t);
+      saveDB();
+      sel.innerHTML = topicOptionsForLevel(level, t.id);
+    } else {
+      sel.value = '';
+    }
+  }
+}
+function studentLessonsSorted(studentId){
+  return db.lessons.filter(l=>l.studentId===studentId)
+    .sort((a,b)=> new Date(a.date)-new Date(b.date) || a.id-b.id);
+}
+function openLessonForm(id, presetDate){
+  const l = id ? db.lessons.find(x=>x.id===id) : null;
+  if(!db.students.length){ alert('Спочатку додайте хоча б одного учня'); return; }
+  const level = l&&l.level ? l.level : LEVELS[0];
+  const defaultStatus = l ? l.status : (presetDate ? 'scheduled' : 'conducted');
+  let prevLesson = null, nextLesson = null;
+  if(l){
+    const siblings = studentLessonsSorted(l.studentId);
+    const idx = siblings.findIndex(x=>x.id===id);
+    prevLesson = idx>0 ? siblings[idx-1] : null;
+    nextLesson = idx<siblings.length-1 ? siblings[idx+1] : null;
+  }
+  modalBody.innerHTML = `
+    <h2>${l?'Редагувати урок':'Новий урок'}</h2>
+    <div class="field"><label>Учень *</label><select id="f_student">${studentOptions(l?l.studentId:null)}</select></div>
+    <div class="field"><label>Дата уроку</label><input type="date" id="f_date" value="${l?l.date:(presetDate||new Date().toISOString().slice(0,10))}"></div>
+    <div class="field"><label>Час (для розкладу)</label><input type="time" id="f_time" value="${l&&l.time?l.time:''}"></div>
+    <div class="field"><label>Рівень</label>
+      <select id="f_level" onchange="onLevelChange()">
+        ${LEVELS.map(lv=>`<option ${lv===level?'selected':''}>${lv}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Тема уроку</label>
+      <select id="f_topic" onchange="onTopicChange()">${topicOptionsForLevel(level, l?l.topicId:null)}</select>
+    </div>
+    <div class="field"><label>Статус</label>
+      <select id="f_status">
+        <option value="scheduled" ${defaultStatus==='scheduled'?'selected':''}>Заплановано</option>
+        <option value="conducted" ${defaultStatus==='conducted'?'selected':''}>Проведено</option>
+        <option value="cancelled_student" ${defaultStatus==='cancelled_student'?'selected':''}>Скасував учень</option>
+        <option value="cancelled_teacher" ${defaultStatus==='cancelled_teacher'?'selected':''}>Скасував викладач</option>
+        <option value="rescheduled" ${defaultStatus==='rescheduled'?'selected':''}>Перенесено</option>
+      </select>
+    </div>
+    <div class="helper">«Заплановано» — майбутній урок (з'явиться в Розкладі). Тільки «Проведено» списується з балансу учня.</div>
+    ${l&&l.meetLink?`<div class="field"><label>Посилання Google Meet</label><a href="${l.meetLink}" target="_blank" rel="noopener" style="word-break:break-all;font-size:13px;">${l.meetLink}</a></div>`:''}
+    <div class="btn-row">
+      <button class="btn" onclick="saveLesson(${id||'null'})">Зберегти</button>
+      ${l?'<button class="btn danger" onclick="deleteLesson('+id+')">Видалити</button>':''}
+    </div>
+    <button class="btn secondary" onclick="closeModal()">Скасувати</button>
+    ${l?`<button class="btn secondary" style="margin-top:10px;" onclick="openInviteEmailForm(${id})">📧 Надіслати запрошення учню на email</button>`:''}
+    ${l?`<div class="btn-row" style="margin-top:10px;">
+      <button class="btn secondary" ${prevLesson?`onclick="openLessonForm(${prevLesson.id})"`:'disabled style="opacity:.4;"'}>← Попередній урок</button>
+      <button class="btn secondary" ${nextLesson?`onclick="openLessonForm(${nextLesson.id})"`:'disabled style="opacity:.4;"'}>Наступний урок →</button>
+    </div>`:''}
+  `;
+  overlay.classList.add('open');
+}
+// Статуси, після встановлення яких тема поточного уроку вважається "не пройденою"
+// і всі наступні заплановані уроки цього учня зсувають свої теми на 1 вперед.
+const TOPIC_SHIFT_STATUSES = ['cancelled_student','cancelled_teacher','rescheduled'];
+
+// Зсуває теми наступних запланованих уроків учня на 1 позицію вперед,
+// починаючи з уроку fromLessonId (тема якого лишається без змін).
+// Тема останнього уроку в черзі при цьому "звільняється" — щоб вона не губилась,
+// автоматично додається ще один урок в кінець (той самий день тижня і час, +7 днів),
+// щоб курс з N оплачених уроків так і покривав рівно N тем.
+// Повертає масив уроків, які змінились або з'явились (для синхронізації з календарем).
+function shiftFutureTopics(studentId, fromLessonId){
+  const siblings = studentLessonsSorted(studentId);
+  const idx = siblings.findIndex(l=>l.id===fromLessonId);
+  if(idx===-1) return [];
+  const chain = [siblings[idx], ...siblings.slice(idx+1).filter(l=>l.status==='scheduled')];
+  if(chain.length<2) return [];
+  const oldTopics = chain.map(l=>l.topicId);
+  for(let i=chain.length-1;i>0;i--){
+    chain[i].topicId = oldTopics[i-1];
+  }
+  const changed = chain.slice(1);
+
+  // Тема останнього уроку в черзі (oldTopics[last]) лишилась без "домівки" — додаємо
+  // компенсаційний урок, щоб вона не губилась і курс покривав ту саму кількість тем.
+  const orphanTopicId = oldTopics[oldTopics.length-1];
+  if(orphanTopicId){
+    const lastLesson = chain[chain.length-1];
+    const nextDate = new Date(lastLesson.date + 'T00:00:00');
+    nextDate.setDate(nextDate.getDate() + 7);
+    const makeupLesson = {
+      id: nextId(),
+      studentId,
+      date: nextDate.toISOString().slice(0,10),
+      time: lastLesson.time || null,
+      level: lastLesson.level,
+      topicId: orphanTopicId,
+      status: 'scheduled',
+    };
+    db.lessons.push(makeupLesson);
+    changed.push(makeupLesson);
+  }
+
+  return changed;
+}
+
+function saveLesson(id){
+  const oldStatus = id ? ((db.lessons.find(x=>x.id===id)||{}).status) : null;
+  const topicVal = document.getElementById('f_topic').value;
+  const data = {
+    studentId: Number(document.getElementById('f_student').value),
+    date: document.getElementById('f_date').value,
+    time: document.getElementById('f_time').value || null,
+    level: document.getElementById('f_level').value,
+    topicId: (topicVal && topicVal !== '__new__') ? Number(topicVal) : null,
+    status: document.getElementById('f_status').value,
+  };
+  let savedLesson;
+  if(id){ savedLesson = Object.assign(db.lessons.find(x=>x.id===id), data); }
+  else { data.id = nextId(); db.lessons.push(data); savedLesson = data; }
+
+  let shiftedLessons = [];
+  if(TOPIC_SHIFT_STATUSES.includes(data.status) && data.status !== oldStatus){
+    shiftedLessons = shiftFutureTopics(savedLesson.studentId, savedLesson.id);
+  }
+
+  saveDB(); closeModal(); showView(currentView==='schedule' ? 'schedule' : 'lessons');
+  syncLessonToCalendar(savedLesson);
+  shiftedLessons.forEach(l=>syncLessonToCalendar(l));
+}
+function deleteLesson(id){
+  if(!confirm('Видалити цей урок?')) return;
+  db.lessons = db.lessons.filter(l=>l.id!==id);
+  saveDB(); closeModal(); showView(currentView==='schedule' ? 'schedule' : 'lessons');
+  removeLessonFromCalendar(id);
+}
+
+function openTariffForm(id){
+  const t = id ? getTariff(id) : null;
+  modalBody.innerHTML = `
+    <h2>${t?'Редагувати тариф':'Новий тариф'}</h2>
+    <div class="field"><label>Назва *</label><input id="f_name" value="${t?t.name:''}"></div>
+    <div class="field"><label>К-сть уроків у пакеті</label><input type="number" id="f_lip" value="${t?t.lessonsInPackage:1}"></div>
+    <div class="field"><label>Ціна пакету (€)</label><input type="number" id="f_pp" value="${t?t.packagePrice:''}" oninput="syncPrice()"></div>
+    <div class="field"><label>Ціна за урок (€)</label><input type="number" id="f_ppl" value="${t?t.pricePerLesson:''}"></div>
+    <div class="btn-row">
+      <button class="btn" onclick="saveTariff(${id||'null'})">Зберегти</button>
+      ${t?'<button class="btn danger" onclick="deleteTariff('+id+')">Видалити</button>':''}
+    </div>
+    <button class="btn secondary" onclick="closeModal()">Скасувати</button>
+  `;
+  overlay.classList.add('open');
+}
+function syncPrice(){
+  const lip = Number(document.getElementById('f_lip').value||1);
+  const pp = Number(document.getElementById('f_pp').value||0);
+  if(lip>0) document.getElementById('f_ppl').value = Math.round((pp/lip)*100)/100;
+}
+function saveTariff(id){
+  const data = {
+    name: document.getElementById('f_name').value.trim(),
+    lessonsInPackage: Number(document.getElementById('f_lip').value||1),
+    packagePrice: Number(document.getElementById('f_pp').value||0),
+    pricePerLesson: Number(document.getElementById('f_ppl').value||0),
+  };
+  if(!data.name){ alert('Вкажіть назву тарифу'); return; }
+  if(id){ Object.assign(getTariff(id), data); }
+  else { data.id = nextId(); db.tariffs.push(data); }
+  saveDB(); closeModal(); showView('tariffs');
+}
+function deleteTariff(id){
+  if(!confirm('Видалити цей тариф?')) return;
+  db.tariffs = db.tariffs.filter(t=>t.id!==id);
+  saveDB(); closeModal(); showView('tariffs');
+}
+
+/* ---------- НАЛАШТУВАННЯ / РЕЗЕРВНА КОПІЯ ---------- */
+document.getElementById('settingsBtn').addEventListener('click', openSettingsForm);
+function openSettingsForm(){
+  modalBody.innerHTML = `
+    <h2>Google Calendar</h2>
+    <div class="helper">Коли увімкнено, кожне збереження чи видалення уроку одразу створює/оновлює/видаляє відповідну подію в календарі "Розклад уроків".</div>
+    ${gcalConnected
+      ? '<button class="btn secondary" onclick="disconnectGoogleCalendar()">✅ Підключено — відключити</button>'
+      : '<button class="btn" onclick="connectGoogleCalendar()">🔗 Підключити Google Calendar</button>'}
+    ${gcalConnected ? '<button class="btn secondary" style="margin-top:8px;" onclick="syncAllLessonsToCalendar()">🔄 Синхронізувати всі уроки зараз</button>' : ''}
+    <h2 style="margin-top:22px;">Резервна копія даних</h2>
+    <div class="helper">Натисніть «Завантажити файл», щоб зберегти файл-копію всіх даних (учні, оплати, уроки, тарифи) на комп'ютер чи планшет — це найнадійніший спосіб не втратити дані, якщо браузер колись очистить пам'ять. Файл можна відкрити пізніше через «Імпортувати». Нікому не пересилайте цей файл публічно — там особисті дані учнів.</div>
+    <div class="btn-row">
+      <button class="btn" onclick="downloadBackup()">⬇️ Завантажити файл резервної копії</button>
+    </div>
+    <div class="field" style="margin-top:14px;"><label>Відновити з файлу резервної копії</label><input type="file" id="f_backup_upload" accept=".json,application/json" onchange="importBackupFile(event)"></div>
+    <div class="field"><label>Або встав текст (JSON)</label><textarea id="f_backup" rows="8">${JSON.stringify(db)}</textarea></div>
+    <div class="btn-row">
+      <button class="btn" onclick="importBackup()">Імпортувати (замінити поточні дані)</button>
+    </div>
+    <button class="btn secondary" onclick="closeModal()">Закрити</button>
+    <button class="btn danger" style="margin-top:14px;" onclick="closeModal();logout()">🚪 Вийти з акаунта</button>
+  `;
+  overlay.classList.add('open');
+}
+function importBackupFile(evt){
+  const file = evt.target.files && evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    document.getElementById('f_backup').value = reader.result;
+    importBackup();
+  };
+  reader.readAsText(file);
+}
+function downloadBackup(){
+  const dateStr = new Date().toISOString().slice(0,10);
+  const blob = new Blob([JSON.stringify(db, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'espanol-crm-backup-' + dateStr + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function importBackup(){
+  let parsed;
+  try{ parsed = JSON.parse(document.getElementById('f_backup').value); }
+  catch(e){ alert('Не вдалося прочитати текст. Перевірте, що це коректний JSON.'); return; }
+  if(!parsed || !Array.isArray(parsed.students) || !Array.isArray(parsed.tariffs)){
+    alert('Формат даних не розпізнано.'); return;
+  }
+  if(!confirm('Замінити всі поточні дані застосунку цими даними? Це не можна скасувати.')) return;
+  db = parsed;
+  if(!Array.isArray(db.lessonTopics)) db.lessonTopics = [];
+  if(typeof db.seq !== 'number'){
+    const ids = [].concat(db.students, db.tariffs, db.payments||[], db.lessons||[], db.lessonTopics).map(x=>x.id||0);
+    db.seq = (ids.length ? Math.max(...ids) : 0) + 1;
+  }
+  saveDB(); closeModal(); showView('dashboard');
+  if(gcalConnected){
+    if(confirm('Синхронізувати всі уроки з Google Calendar зараз? (може зайняти хвилину)')){
+      syncAllLessonsToCalendar();
+    }
+  }
+}
+
+/* ---------- FAB (кнопка додавання, контекстна) ---------- */
+document.getElementById('fabAdd').addEventListener('click', ()=>{
+  if(currentView==='students') openStudentForm();
+  else if(currentView==='payments') openPaymentForm();
+  else if(currentView==='lessons') openLessonForm();
+  else if(currentView==='schedule') openLessonForm(null, ymd(new Date()));
+  else if(currentView==='tariffs') openTariffForm();
+  else openStudentForm();
+});
+
+/* Перший рендер відбувається автоматично після входу — див. loadAndBootFromFirestore(),
+   яку викликає auth.onAuthStateChanged() вище. */
+
+/* ---------- PWA: service worker (швидший запуск + офлайн-доступ до самого застосунку) ----------
+   Стратегія "network-first": завжди намагається взяти свіжу версію з інтернету,
+   і лише коли інтернету нема — показує останню збережену копію. Це навмисно,
+   щоб не повторити стару проблему з "залипанням" застарілої версії в кеші Safari. */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(e=>console.error('Помилка реєстрації service worker:', e));
+  });
+}
+</script>
+</body>
+</html>
