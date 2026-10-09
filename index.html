@@ -1087,7 +1087,7 @@ function openStudentForm(id){
       </select>
     </div>
     <div class="field"><label>Тариф</label><select id="f_tariff">${tariffOptions(s?s.tariffId:null)}</select></div>
-    <div class="field"><label>Дата початку</label><input type="date" id="f_startDate" value="${s?s.startDate||'':new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label>Дата початку</label><input type="date" id="f_startDate" value="${s?s.startDate||'':localISO(new Date())}"></div>
     <div class="field">
       <label style="display:flex;align-items:center;gap:8px;font-weight:600;">
         <input type="checkbox" id="f_genSchedule" onchange="toggleGenSchedule()" ${s?'':'checked'}>
@@ -1160,6 +1160,11 @@ function onSchedTopicChange(){
     }
   }
 }
+// Локальна дата YYYY-MM-DD (без переходу в UTC, щоб дні тижня не зсувались на -1 день)
+function localISO(d){
+  const p = n => String(n).padStart(2,'0');
+  return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate());
+}
 // Генерує серію уроків для учня: у вибрані дні тижня (кожен зі своїм часом),
 // починаючи з дати старту, з темами по порядку з обраного рівня (починаючи зі стартової теми).
 // dayTimes: Map або об'єкт { day: 'HH:MM' } для обраних днів тижня (day за Date.getDay()).
@@ -1177,7 +1182,7 @@ function generateScheduleLessons(studentId, startDateStr, dayTimes, level, start
       const lesson = {
         id: nextId(),
         studentId,
-        date: d.toISOString().slice(0,10),
+        date: localISO(d),
         time: dayTimes[dayVal] || null,
         level,
         topicId: topics[topicIdx] ? topics[topicIdx].id : null,
@@ -1225,7 +1230,7 @@ function saveStudent(id){
       const topicVal = document.getElementById('f_schedTopic').value;
       const startTopicId = (topicVal && topicVal !== '__new__') ? Number(topicVal) : null;
       const count = Math.max(1, Number(document.getElementById('f_schedCount').value || 30));
-      const startDate = data.startDate || new Date().toISOString().slice(0,10);
+      const startDate = data.startDate || localISO(new Date());
       generatedLessons = generateScheduleLessons(studentId, startDate, dayTimes, level, startTopicId, count);
     }
   }
@@ -1247,7 +1252,7 @@ function openPaymentForm(id){
   modalBody.innerHTML = `
     <h2>${p?'Редагувати оплату':'Нова оплата'}</h2>
     <div class="field"><label>Учень *</label><select id="f_student">${studentOptions(p?p.studentId:null)}</select></div>
-    <div class="field"><label>Дата оплати</label><input type="date" id="f_date" value="${p?p.date:new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label>Дата оплати</label><input type="date" id="f_date" value="${p?p.date:localISO(new Date())}"></div>
     <div class="field"><label>Тариф</label><select id="f_tariff" onchange="autofillPayment()">${tariffOptions(p?p.tariffId:null)}</select></div>
     <div class="field"><label>Сума (€)</label><input type="number" id="f_amount" value="${p?p.amount:''}"></div>
     <div class="field"><label>К-сть оплачених уроків</label><input type="number" id="f_lessons" value="${p?p.lessonsPaid:''}"></div>
@@ -1386,7 +1391,7 @@ function openLessonForm(id, presetDate){
   modalBody.innerHTML = `
     <h2>${l?'Редагувати урок':'Новий урок'}</h2>
     <div class="field"><label>Учень *</label><select id="f_student">${studentOptions(l?l.studentId:null)}</select></div>
-    <div class="field"><label>Дата уроку</label><input type="date" id="f_date" value="${l?l.date:(presetDate||new Date().toISOString().slice(0,10))}"></div>
+    <div class="field"><label>Дата уроку</label><input type="date" id="f_date" value="${l?l.date:(presetDate||localISO(new Date()))}"></div>
     <div class="field"><label>Час (для розкладу)</label><input type="time" id="f_time" value="${l&&l.time?l.time:''}"></div>
     <div class="field"><label>Рівень</label>
       <select id="f_level" onchange="onLevelChange()">
@@ -1464,7 +1469,7 @@ function shiftFutureTopics(studentId, fromLessonId, skipMakeup){
     const makeupLesson = {
       id: nextId(),
       studentId,
-      date: nextDate.toISOString().slice(0,10),
+      date: localISO(nextDate),
       time: lastLesson.time || null,
       level: lastLesson.level,
       topicId: orphanTopicId,
@@ -1590,7 +1595,7 @@ function importBackupFile(evt){
   reader.readAsText(file);
 }
 function downloadBackup(){
-  const dateStr = new Date().toISOString().slice(0,10);
+  const dateStr = localISO(new Date());
   const blob = new Blob([JSON.stringify(db, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
